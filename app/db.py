@@ -1,4 +1,4 @@
-"""Conexao com o SQLite e schema da tabela `filmes`.
+"""Conexao com o SQLite e schema das tabelas `pessoas` e `filmes`.
 
 Cobre a Issue #2 (Fase 1 do plan.md): criar o banco, criar a tabela e
 oferecer funcoes basicas de inserir e listar filmes.
@@ -12,6 +12,14 @@ from typing import Any
 
 # Caminho do banco na raiz do projeto (ao lado da pasta app/).
 DB_PATH = Path(__file__).resolve().parent.parent / "filmes.db"
+
+CRIAR_TABELA_PESSOAS = """
+CREATE TABLE IF NOT EXISTS pessoas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    data_entrada TEXT NOT NULL
+);
+"""
 
 CRIAR_TABELA_FILMES = """
 CREATE TABLE IF NOT EXISTS filmes (
@@ -27,10 +35,11 @@ CREATE TABLE IF NOT EXISTS filmes (
     sinopse TEXT,
     poster_url TEXT,
     provedores TEXT,
-    quem_sugeriu TEXT,
+    pessoa_id INTEGER,
     data_sugestao TEXT,
     status TEXT,
-    nota_familia REAL
+    nota_familia REAL,
+    FOREIGN KEY (pessoa_id) REFERENCES pessoas (id)
 );
 """
 
@@ -47,7 +56,7 @@ COLUNAS_FILMES = [
     "sinopse",
     "poster_url",
     "provedores",
-    "quem_sugeriu",
+    "pessoa_id",
     "data_sugestao",
     "status",
     "nota_familia",
@@ -67,10 +76,14 @@ def conectar(db_path: Path | str = DB_PATH) -> sqlite3.Connection:
 
 
 def criar_schema(conexao: sqlite3.Connection | None = None) -> None:
-    """Cria a tabela `filmes` caso ela ainda nao exista."""
+    """Cria as tabelas `pessoas` e `filmes` caso ainda nao existam.
+
+    A ordem importa: `filmes.pessoa_id` referencia `pessoas.id`.
+    """
     conexao_propria = conexao is None
     conn = conexao or conectar()
     try:
+        conn.execute(CRIAR_TABELA_PESSOAS)
         conn.execute(CRIAR_TABELA_FILMES)
         conn.commit()
     finally:
