@@ -89,6 +89,15 @@ o Git. O repositório guarda só o `.env.example` com os nomes das variáveis, s
 
 ## 9. Como rodar e testar
 
-Esta seção deve ser preenchida assim que o código da Fase 1 existir. Ela vai conter
-o comando de instalar as dependências, o comando de subir o servidor e o endereço da
-página.
+O passo a passo completo (instalar dependências, pegar as chaves da OMDb e da TMDB,
+subir o servidor e endereço da página) está no [`README.md`](README.md). Resumo:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # preencher OMDB_API_KEY e TMDB_API_KEY
+uvicorn app.main:app --reload
+```
+
+Página em `http://localhost:8000`.
