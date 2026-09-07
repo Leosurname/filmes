@@ -89,6 +89,17 @@ o Git. O repositório guarda só o `.env.example` com os nomes das variáveis, s
 
 ## 9. Como rodar e testar
 
-Esta seção deve ser preenchida assim que o código da Fase 1 existir. Ela vai conter
-o comando de instalar as dependências, o comando de subir o servidor e o endereço da
-página.
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/uvicorn app.main:app --reload
+```
+
+A API sobe em `http://127.0.0.1:8000`. Endpoints disponíveis até agora:
+
+- `POST /api/filmes` — salva um filme a partir do link colado (issue #3).
+  Recebe `{"url": "..."}` no corpo e o header `X-Pessoa-Nome` com o nome de
+  quem está usando o sistema (contrato provisório até a issue #31 definir a
+  identificação oficial do aparelho).
+
+Esta seção continua sendo preenchida conforme novas fases entram.
