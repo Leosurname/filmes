@@ -1,0 +1,68 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  margin: 0;
+  padding: 0 1rem 2rem;
+  background: #14161a;
+  color: #f2f2f2;
+}
+
+header h1 {
+  font-size: 1.4rem;
+  padding: 1rem 0;
+}
+
+#filtro-temas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.tag {
+  border: 1px solid #444;
+  background: #1f2227;
+  color: #f2f2f2;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.tag.ativo {
+  background: #4f7cff;
+  border-color: #4f7cff;
+  color: #fff;
+}
+
+.filmes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.filme-card {
+  background: #1f2227;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.filme-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.filme-card .generos {
+  color: #a9b0bd;
+  font-size: 0.85rem;
+}
+
+.vazio {
+  color: #a9b0bd;
+}
