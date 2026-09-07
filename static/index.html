@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Filmes da Família</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Filmes da Família</h1>
+  </header>
+
+  <main>
+    <section aria-labelledby="titulo-quero-ver">
+      <h2 id="titulo-quero-ver">Quero ver</h2>
+      <div id="lista-quero-ver" class="lista-filmes"></div>
+      <p id="vazio-quero-ver" class="mensagem-vazia" hidden>
+        Nenhum filme na fila. Que tal sugerir um?
+      </p>
+    </section>
+
+    <section aria-labelledby="titulo-assistidos">
+      <h2 id="titulo-assistidos">Já assistimos</h2>
+      <div id="lista-assistidos" class="lista-filmes"></div>
+      <p id="vazio-assistidos" class="mensagem-vazia" hidden>
+        Ainda não marcamos nenhum filme como assistido.
+      </p>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
