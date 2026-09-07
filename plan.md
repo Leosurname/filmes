@@ -19,7 +19,7 @@ descobre sozinho os dados do filme e organiza tudo por:
 
 ## Como funciona
 
-1. Na primeira vez, a pessoa escolhe o próprio nome na lista da casa.
+1. Na primeira vez, a pessoa digita o próprio nome. O aparelho lembra e não pergunta de novo.
 2. Alguém abre a página no celular, cola o link do filme e envia.
 3. O back-end identifica o filme a partir do link e busca os metadados.
 4. O filme entra na lista, já com duração, gênero, classificação, nota e onde assistir.
@@ -30,9 +30,10 @@ descobre sozinho os dados do filme e organiza tudo por:
 A lista é da casa e roda na rede de casa, então não existe senha. A identificação
 serve só para saber **quem colocou cada filme**.
 
-- Na primeira visita, a pessoa clica no próprio nome ou digita um nome novo.
-- O nome fica guardado no navegador, então ela não escolhe de novo a cada visita.
-- Dá para trocar de pessoa, para o caso de duas usarem o mesmo celular.
+- Na primeira visita, a pessoa digita o próprio nome. Só isso, sem senha.
+- O aparelho guarda esse nome e **não pergunta mais**: nas próximas visitas ela
+  já entra direto na lista.
+- Não existe lista de nomes da casa para escolher. Cada um digita o seu.
 - Cada filme mostra quem sugeriu e quando, e dá para filtrar por pessoa.
 
 Nome com acento ou maiúscula diferente não pode criar pessoa duplicada.
@@ -123,7 +124,7 @@ filmes/
 
 | Fase | O que entrega |
 |---|---|
-| F1 | Escolha do nome, página com campo de link, salvar no banco e listar |
+| F1 | Login pelo nome, página com campo de link, salvar no banco e listar |
 | F2 | Enriquecer o filme com os dados da OMDb |
 | F3 | Filtros por duração, tema, classificação, nota do IMDb e pessoa |
 | F4 | "Onde assistir" via TMDB |
