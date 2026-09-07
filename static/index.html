@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Filmes da Família</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <h1>Filmes da Família</h1>
+
+    <form id="form-nome" class="cartao">
+      <label for="nome">Seu nome</label>
+      <input type="text" id="nome" placeholder="Como podemos te chamar?" required />
+      <button type="submit">Salvar</button>
+    </form>
+
+    <form id="form-filme" class="cartao" hidden>
+      <label for="url">Link do filme (IMDb)</label>
+      <input type="text" id="url" placeholder="https://www.imdb.com/title/tt..." required />
+      <button type="submit">Adicionar à lista</button>
+      <p id="aviso" class="aviso" hidden></p>
+    </form>
+
+    <section>
+      <h2>Lista</h2>
+      <ul id="lista-filmes"></ul>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

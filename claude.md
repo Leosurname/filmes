@@ -89,6 +89,15 @@ o Git. O repositório guarda só o `.env.example` com os nomes das variáveis, s
 
 ## 9. Como rodar e testar
 
-Esta seção deve ser preenchida assim que o código da Fase 1 existir. Ela vai conter
-o comando de instalar as dependências, o comando de subir o servidor e o endereço da
-página.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+Acesse `http://127.0.0.1:8000`.
+
+Nota: por enquanto só existe o necessário para a issue #10 (salvar filme a partir do
+imdb_id extraído do link e avisar sobre duplicado). A busca de metadados na OMDb/TMDB,
+filtros e demais telas chegam nas próximas issues.
