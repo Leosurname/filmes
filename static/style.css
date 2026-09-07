@@ -1,0 +1,28 @@
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 640px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+#lista-filmes {
+  list-style: none;
+  padding: 0;
+}
+
+#lista-filmes li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.classificacao {
+  font-weight: bold;
+  color: #555;
+}
+
+.classificacao.nao-informada {
+  font-style: italic;
+  color: #999;
+}
