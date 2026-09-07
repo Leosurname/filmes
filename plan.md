@@ -129,14 +129,9 @@ filmes/
 | F3 | Filtros por duração, tema, classificação, nota do IMDb e pessoa |
 | F4 | "Onde assistir" via TMDB |
 | F5 | Marcar como assistido e dar nota da família |
-| F6 | Rodar em casa para todos acessarem pela rede — **infra entregue (issue #22)** |
+| F6 | Rodar em casa para todos acessarem pela rede |
 
 Cada fase vira uma issue no GitHub, conforme as regras do `claude.md`.
-
-> F6: a infraestrutura de rede (servidor escutando em `0.0.0.0`, endereço de
-> acesso documentado, banco em arquivo persistente, decisão sobre autostart)
-> está pronta e documentada no `README.md`. Falta só o código do servidor em
-> si, que chega com as fases F1 a F5.
 
 ## Fora de escopo por enquanto
 
