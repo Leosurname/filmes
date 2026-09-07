@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Filmes da Familia</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Filmes da Familia</h1>
+  </header>
+
+  <nav class="abas">
+    <button class="aba-btn" data-status="quero_ver">Quero ver</button>
+    <button class="aba-btn" data-status="assistido">Ja assistimos</button>
+  </nav>
+
+  <main>
+    <ul id="lista-filmes" class="lista-filmes"></ul>
+    <p id="lista-vazia" class="lista-vazia" hidden>Nenhum filme por aqui.</p>
+  </main>
+
+  <div id="modal-confirmar" class="modal" hidden>
+    <div class="modal-conteudo">
+      <p>Remover <strong id="modal-titulo"></strong> da lista?</p>
+      <p class="modal-aviso">Essa acao nao pode ser desfeita.</p>
+      <div class="modal-botoes">
+        <button id="modal-cancelar" class="btn btn-secundario">Cancelar</button>
+        <button id="modal-confirmar-btn" class="btn btn-perigo">Sim, remover</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
