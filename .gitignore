@@ -1,0 +1,15 @@
+# Segredos
+.env
+
+# Banco de dados local
+*.db
+filmes.db
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# macOS
+.DS_Store
