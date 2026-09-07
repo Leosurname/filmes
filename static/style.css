@@ -1,0 +1,122 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 1rem;
+  background: #111318;
+  color: #eee;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.lista-filmes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  background: #1b1e27;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.card .poster {
+  width: 100%;
+  height: 280px;
+  object-fit: cover;
+  background: #2a2e3a;
+}
+
+.card-info {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.titulo {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.ano {
+  margin: 0;
+  color: #999;
+  font-size: 0.85rem;
+}
+
+.notas {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.nota {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.nota-label {
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
+}
+
+.nota-valor {
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+/* Cores diferentes para nunca confundir as duas notas. */
+.nota-imdb {
+  background: #2d2410;
+  color: #f2c14e;
+}
+
+.nota-familia {
+  background: #12261f;
+  color: #4ecf8a;
+}
+
+.nota-valor.vazio {
+  opacity: 0.4;
+  font-weight: normal;
+}
+
+.form-nota-familia {
+  display: flex;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.form-nota-familia label {
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.form-nota-familia input {
+  padding: 0.35rem;
+}
+
+.form-nota-familia button {
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Filmes da Família</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Já assistimos</h1>
+    <label class="ordenar">
+      Ordenar por
+      <select id="ordenar">
+        <option value="">Mais recente</option>
+        <option value="nota_familia">Nota da família</option>
+      </select>
+    </label>
+  </header>
+
+  <main id="lista" class="lista-filmes"></main>
+
+  <template id="template-card">
+    <article class="card">
+      <img class="poster" />
+      <div class="card-info">
+        <h2 class="titulo"></h2>
+        <p class="ano"></p>
+        <div class="notas">
+          <span class="nota nota-imdb" title="Nota do IMDb">
+            <span class="nota-label">IMDb</span>
+            <span class="nota-valor valor-imdb"></span>
+          </span>
+          <span class="nota nota-familia" title="Nota da família">
+            <span class="nota-label">Família</span>
+            <span class="nota-valor valor-familia"></span>
+          </span>
+        </div>
+        <form class="form-nota-familia">
+          <label>
+            Nota da família (0 a 10)
+            <input type="number" min="0" max="10" step="0.5" class="input-nota-familia" required />
+          </label>
+          <button type="submit">Salvar</button>
+        </form>
+      </div>
+    </article>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>
