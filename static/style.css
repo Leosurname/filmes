@@ -1,0 +1,107 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #14161a;
+  color: #f2f2f2;
+}
+
+.topo {
+  padding: 1.25rem 1.5rem;
+}
+
+.topo h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+main {
+  padding: 0 1.5rem 2rem;
+}
+
+.filmes-mensagem {
+  color: #aaa;
+  font-style: italic;
+}
+
+.filmes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.filme-card {
+  background: #1f2229;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.filme-card__poster {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  background: #2b2f38;
+  display: block;
+}
+
+.filme-card__poster--vazio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #777;
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 0.5rem;
+}
+
+.filme-card__corpo {
+  padding: 0.65rem 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+}
+
+.filme-card__titulo {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.filme-card__meta {
+  font-size: 0.8rem;
+  color: #bbb;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.filme-card__generos {
+  font-size: 0.78rem;
+  color: #9fb4d8;
+}
+
+.filme-card__rodape {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  color: #999;
+}
+
+.filme-card__nota {
+  color: #f2c94c;
+  font-weight: 600;
+}
+
+.filme-card__vazio {
+  color: #666;
+  font-style: italic;
+}
