@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Filmes da Família</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main>
+    <h1>Filmes da Família</h1>
+
+    <form id="form-novo-filme">
+      <input
+        type="text"
+        id="input-url"
+        placeholder="Cole o link do filme aqui"
+        autocomplete="off"
+        required
+      />
+      <button type="submit">Adicionar</button>
+    </form>
+
+    <div id="mensagem" hidden></div>
+
+    <ul id="lista-filmes"></ul>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

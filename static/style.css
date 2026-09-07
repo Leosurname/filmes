@@ -1,0 +1,98 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  background: #f7f7f8;
+  color: #1a1a1a;
+}
+
+h1 {
+  font-size: 1.4rem;
+}
+
+#form-novo-filme {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+#input-url {
+  flex: 1;
+  padding: 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+button {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: #2f6feb;
+  color: white;
+  cursor: pointer;
+}
+
+#mensagem {
+  padding: 0.7rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  background: #fff4ce;
+  border: 1px solid #e6c200;
+}
+
+#mensagem.erro {
+  background: #fde2e1;
+  border-color: #d33;
+}
+
+#lista-filmes {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.card {
+  background: white;
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.card .aviso {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  background: #fff4ce;
+  border: 1px solid #e6c200;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.card .url {
+  font-size: 0.8rem;
+  color: #666;
+  word-break: break-all;
+}
+
+.card form.completar {
+  margin-top: 0.6rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.card form.completar input {
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.card form.completar button {
+  grid-column: span 2;
+}

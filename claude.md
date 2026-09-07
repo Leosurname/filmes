@@ -89,6 +89,14 @@ o Git. O repositório guarda só o `.env.example` com os nomes das variáveis, s
 
 ## 9. Como rodar e testar
 
-Esta seção deve ser preenchida assim que o código da Fase 1 existir. Ela vai conter
-o comando de instalar as dependências, o comando de subir o servidor e o endereço da
-página.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # opcional: preencher OMDB_API_KEY para buscar metadados de verdade
+uvicorn app.main:app --reload
+```
+
+Depois abra `http://localhost:8000`. Sem `OMDB_API_KEY` configurada (ou com a API fora
+do ar, ou com um link sem id de filme reconhecível), o filme ainda é salvo, aparece um
+aviso no card e dá para preencher os dados manualmente ali mesmo.
