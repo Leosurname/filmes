@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Filmes da Familia</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <h1>Filmes da Familia</h1>
+
+  <div class="filtros">
+    <label for="filtro-duracao">Duracao</label>
+    <select id="filtro-duracao">
+      <option value="">Todas</option>
+      <option value="ate_90">Ate 90 min</option>
+      <option value="90_120">90 a 120 min</option>
+      <option value="mais_120">Mais de 2h</option>
+    </select>
+  </div>
+
+  <p id="aviso-duracao-desconhecida" class="aviso" hidden></p>
+
+  <ul id="lista-filmes"></ul>
+
+  <script src="/app.js"></script>
+</body>
+</html>

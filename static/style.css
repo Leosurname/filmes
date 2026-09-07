@@ -1,0 +1,47 @@
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 640px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  color: #222;
+}
+
+.filtros {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.aviso {
+  background: #fff8e1;
+  border: 1px solid #f0d878;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+#lista-filmes {
+  list-style: none;
+  padding: 0;
+}
+
+.filme-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.duracao {
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.duracao.duracao-desconhecida {
+  color: #a06a00;
+  font-style: italic;
+}

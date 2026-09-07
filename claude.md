@@ -89,6 +89,12 @@ o Git. O repositório guarda só o `.env.example` com os nomes das variáveis, s
 
 ## 9. Como rodar e testar
 
-Esta seção deve ser preenchida assim que o código da Fase 1 existir. Ela vai conter
-o comando de instalar as dependências, o comando de subir o servidor e o endereço da
-página.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+A página fica em `http://127.0.0.1:8000/`. A API de listagem (com o filtro de
+duração da issue #11) fica em `http://127.0.0.1:8000/api/filmes`.
