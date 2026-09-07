@@ -19,11 +19,24 @@ descobre sozinho os dados do filme e organiza tudo por:
 
 ## Como funciona
 
-1. Alguém abre a página no celular e cola o link do filme.
-2. Escreve o nome (quem sugeriu) e envia.
+1. Na primeira vez, a pessoa digita o próprio nome. O aparelho lembra e não pergunta de novo.
+2. Alguém abre a página no celular, cola o link do filme e envia.
 3. O back-end identifica o filme a partir do link e busca os metadados.
 4. O filme entra na lista, já com duração, gênero, classificação, nota e onde assistir.
 5. Todos veem a lista e filtram pelo que importa naquela noite.
+
+## Quem é quem (sem senha)
+
+A lista é da casa e roda na rede de casa, então não existe senha. A identificação
+serve só para saber **quem colocou cada filme**.
+
+- Na primeira visita, a pessoa digita o próprio nome. Só isso, sem senha.
+- O aparelho guarda esse nome e **não pergunta mais**: nas próximas visitas ela
+  já entra direto na lista.
+- Não existe lista de nomes da casa para escolher. Cada um digita o seu.
+- Cada filme mostra quem sugeriu e quando, e dá para filtrar por pessoa.
+
+Nome com acento ou maiúscula diferente não pode criar pessoa duplicada.
 
 ## Stack
 
@@ -65,14 +78,23 @@ Tabela `filmes`:
 | `sinopse` | TEXT | resumo curto |
 | `poster_url` | TEXT | imagem do pôster |
 | `provedores` | TEXT (JSON) | onde assistir |
-| `quem_sugeriu` | TEXT | nome de quem mandou |
+| `pessoa_id` | INTEGER | quem sugeriu (referência a `pessoas`) |
 | `data_sugestao` | TEXT | data de entrada |
 | `status` | TEXT | `quero_ver` ou `assistido` |
 | `nota_familia` | REAL | nota que a família deu depois |
 
+Tabela `pessoas`:
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | INTEGER | chave primária |
+| `nome` | TEXT | nome de quem usa |
+| `data_entrada` | TEXT | quando começou a usar |
+
 ## Organização e filtros
 
-**Filtros combináveis:** faixa de duração, gênero, classificação e provedor.
+**Filtros combináveis:** faixa de duração, gênero, classificação, provedor,
+nota mínima do IMDb e pessoa que sugeriu.
 
 **Ordenações:** mais recente, maior nota IMDb, menor duração.
 
@@ -102,9 +124,9 @@ filmes/
 
 | Fase | O que entrega |
 |---|---|
-| F1 | Página com campo de link, salvar no banco e listar |
+| F1 | Login pelo nome, página com campo de link, salvar no banco e listar |
 | F2 | Enriquecer o filme com os dados da OMDb |
-| F3 | Filtros e agrupamentos por duração, tema e classificação |
+| F3 | Filtros por duração, tema, classificação, nota do IMDb e pessoa |
 | F4 | "Onde assistir" via TMDB |
 | F5 | Marcar como assistido e dar nota da família |
 | F6 | Rodar em casa para todos acessarem pela rede |
@@ -113,7 +135,7 @@ Cada fase vira uma issue no GitHub, conforme as regras do `claude.md`.
 
 ## Fora de escopo por enquanto
 
-- Login por pessoa (a lista é da casa toda, sem senha)
+- Senha ou login de verdade (a identificação é só pelo nome, sem proteção)
 - Aplicativo mobile nativo
 - Notificações
 - Recomendações automáticas
