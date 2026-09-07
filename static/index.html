@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Filmes da Família</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Filmes da Família</h1>
+
+    <nav class="visoes" aria-label="Alternar visão da lista">
+      <button type="button" id="btn-quero-ver" class="visao-btn ativo" data-status="quero_ver">
+        Quero ver
+      </button>
+      <button type="button" id="btn-assistidos" class="visao-btn" data-status="assistido">
+        Já assistimos
+      </button>
+    </nav>
+
+    <form id="filtros" class="filtros">
+      <label>
+        Gênero
+        <select id="filtro-genero">
+          <option value="">Todos</option>
+        </select>
+      </label>
+
+      <label>
+        Duração máxima
+        <select id="filtro-duracao">
+          <option value="">Sem limite</option>
+          <option value="90">Até 90 min</option>
+          <option value="120">Até 120 min</option>
+        </select>
+      </label>
+    </form>
+  </header>
+
+  <main>
+    <p id="vazio" hidden>Nenhum filme encontrado com esses filtros.</p>
+    <ul id="lista-filmes" class="lista-filmes"></ul>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

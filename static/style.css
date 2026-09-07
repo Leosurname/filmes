@@ -1,0 +1,121 @@
+:root {
+  color-scheme: light dark;
+  --cor-fundo: #f7f7f5;
+  --cor-texto: #1c1c1c;
+  --cor-card: #ffffff;
+  --cor-borda: #ddd;
+  --cor-destaque: #2f6f4f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+}
+
+header {
+  padding: 1.5rem 1rem 1rem;
+  background: var(--cor-card);
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+h1 {
+  margin: 0 0 1rem;
+  font-size: 1.4rem;
+}
+
+.visoes {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.visao-btn {
+  flex: 1;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--cor-destaque);
+  background: transparent;
+  color: var(--cor-destaque);
+  border-radius: 999px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.visao-btn.ativo {
+  background: var(--cor-destaque);
+  color: #fff;
+}
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.filtros label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  gap: 0.25rem;
+}
+
+main {
+  padding: 1rem;
+}
+
+.lista-filmes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  background: var(--cor-card);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.card h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
+}
+
+.card .meta {
+  font-size: 0.85rem;
+  color: #555;
+  margin: 0.2rem 0;
+}
+
+.card .assistido-info {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--cor-borda);
+  font-size: 0.85rem;
+}
+
+#vazio {
+  color: #666;
+  font-style: italic;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cor-fundo: #14161a;
+    --cor-texto: #ececec;
+    --cor-card: #1f2227;
+    --cor-borda: #33363c;
+  }
+
+  .card .meta {
+    color: #bbb;
+  }
+}

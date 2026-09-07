@@ -89,6 +89,11 @@ o Git. O repositório guarda só o `.env.example` com os nomes das variáveis, s
 
 ## 9. Como rodar e testar
 
-Esta seção deve ser preenchida assim que o código da Fase 1 existir. Ela vai conter
-o comando de instalar as dependências, o comando de subir o servidor e o endereço da
-página.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+Acesse http://localhost:8000. Veja o `README.md` para detalhes.
