@@ -32,6 +32,15 @@
 
     <div id="mensagem" class="mensagem" role="status" aria-live="polite" hidden></div>
 
+    <div class="ordenacao-linha">
+      <label for="ordenacao" class="rotulo">Ordenar por</label>
+      <select id="ordenacao">
+        <option value="recente">Mais recente</option>
+        <option value="nota">Maior nota do IMDb</option>
+        <option value="duracao">Menor duração</option>
+      </select>
+    </div>
+
     <p id="filmes-mensagem" class="filmes-mensagem" hidden></p>
     <section id="filmes-grid" class="filmes-grid" aria-live="polite"></section>
   </main>

@@ -254,6 +254,47 @@ function criarCard(filme) {
   return card;
 }
 
+// --- Ordenacao da lista ----------------------------------------------------
+
+// Filme sem nota ou sem duracao vai sempre para o fim, nunca para o comeco.
+function ordenarLista(filmes, criterio) {
+  const lista = [...filmes];
+  const porCampoCrescente = (campo) => (a, b) => {
+    const va = a[campo];
+    const vb = b[campo];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return va - vb;
+  };
+
+  switch (criterio) {
+    case "nota":
+      lista.sort((a, b) => {
+        const na = a.nota_imdb;
+        const nb = b.nota_imdb;
+        if (na == null && nb == null) return 0;
+        if (na == null) return 1;
+        if (nb == null) return -1;
+        return nb - na;
+      });
+      break;
+    case "duracao":
+      lista.sort(porCampoCrescente("duracao_min"));
+      break;
+    case "recente":
+    default:
+      lista.sort((a, b) => new Date(b.data_sugestao) - new Date(a.data_sugestao));
+      break;
+  }
+  return lista;
+}
+
+function criterioAtual() {
+  const select = document.getElementById("ordenacao");
+  return select ? select.value : "recente";
+}
+
 async function carregarFilmes() {
   mostrarMensagemLista("Carregando filmes...");
   try {
@@ -272,7 +313,9 @@ async function carregarFilmes() {
 
     mostrarMensagemLista(null);
     const fragmento = document.createDocumentFragment();
-    filmes.forEach((filme) => fragmento.appendChild(criarCard(filme)));
+    ordenarLista(filmes, criterioAtual()).forEach((filme) =>
+      fragmento.appendChild(criarCard(filme))
+    );
     GRID.appendChild(fragmento);
   } catch (erro) {
     console.error("Erro ao carregar filmes:", erro);
@@ -284,7 +327,13 @@ async function carregarFilmes() {
 // disparem uma atualização da lista sem recarregar a página inteira.
 document.addEventListener("filmes:atualizar", carregarFilmes);
 
-document.addEventListener("DOMContentLoaded", carregarFilmes);
+document.addEventListener("DOMContentLoaded", () => {
+  const select = document.getElementById("ordenacao");
+  if (select) {
+    select.addEventListener("change", carregarFilmes);
+  }
+  carregarFilmes();
+});
 
 // Exposto para reuso/testes manuais.
 window.carregarFilmes = carregarFilmes;
