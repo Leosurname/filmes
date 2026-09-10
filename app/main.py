@@ -265,6 +265,19 @@ def dar_nota(filme_id: int, payload: NotaRequest) -> dict:
     return dict(linha)
 
 
+@app.delete("/api/filmes/{filme_id}", status_code=204)
+def remover_filme(filme_id: int) -> None:
+    """Apaga um filme da lista, em qualquer uma das duas visões."""
+    conexao = conectar()
+    try:
+        if conexao.execute("SELECT id FROM filmes WHERE id = ?", (filme_id,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="Filme não encontrado.")
+        conexao.execute("DELETE FROM filmes WHERE id = ?", (filme_id,))
+        conexao.commit()
+    finally:
+        conexao.close()
+
+
 @app.get("/api/filmes")
 def get_filmes() -> list[dict]:
     """Lista os filmes salvos, do mais recente para o mais antigo.

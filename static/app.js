@@ -193,6 +193,33 @@ function textoNotas(filme) {
   return partes.join(" · ");
 }
 
+// Apagar pede confirmacao: nao da para perder um filme com um clique so.
+async function removerFilme(filme) {
+  const nome = filme.titulo || "esse filme";
+  if (!window.confirm(`Tirar ${nome} da lista? Isso não dá para desfazer.`)) {
+    return;
+  }
+  try {
+    const resposta = await fetch(`/api/filmes/${filme.id}`, { method: "DELETE" });
+    if (!resposta.ok && resposta.status !== 204) {
+      throw new Error(`status ${resposta.status}`);
+    }
+    document.dispatchEvent(new CustomEvent("filmes:atualizar"));
+  } catch (erro) {
+    console.error("Erro ao remover filme:", erro);
+    mostrarMensagemLista("Não foi possível remover o filme agora.");
+  }
+}
+
+function criarBotaoRemover(filme) {
+  const botao = document.createElement("button");
+  botao.type = "button";
+  botao.className = "botao-remover";
+  botao.textContent = "Tirar da lista";
+  botao.addEventListener("click", () => removerFilme(filme));
+  return botao;
+}
+
 function criarCard(filme) {
   const card = document.createElement("article");
   card.className = "filme-card";
