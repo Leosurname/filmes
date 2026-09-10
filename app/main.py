@@ -1,12 +1,14 @@
 """Rotas da API e servidor da aplicação Filmes da Família."""
 
 import json
+import os
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -30,6 +32,28 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Filmes da Família", lifespan=lifespan)
+
+
+# A pagina pode ficar hospedada em outro endereco que nao o do servidor (por
+# exemplo no GitHub Pages, com o servidor rodando no computador de casa). Nesse
+# caso o navegador so deixa a chamada passar se o servidor autorizar a origem.
+#
+# Nada e liberado por padrao: as origens vem da variavel FILMES_ORIGENS, separadas
+# por virgula. Servindo a pagina pelo proprio servidor, como hoje, nao precisa de
+# nada disso.
+ORIGENS_PERMITIDAS = [
+    origem.strip()
+    for origem in os.environ.get("FILMES_ORIGENS", "").split(",")
+    if origem.strip()
+]
+
+if ORIGENS_PERMITIDAS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=ORIGENS_PERMITIDAS,
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_headers=["Content-Type", "X-Pessoa-Id"],
+    )
 
 
 @app.get("/")
