@@ -30,7 +30,8 @@ def cliente(tmp_path, monkeypatch):
 
 
 def cabecalho(cliente, nome="Leo"):
-    return {"X-Pessoa-Nome": nome}
+    pessoa = cliente.post("/api/entrar", json={"nome": nome}).json()
+    return {"X-Pessoa-Id": str(pessoa["id"])}
 
 
 def test_salvar_filme_responde_201(cliente):

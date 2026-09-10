@@ -5,13 +5,13 @@ from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.db import conectar, criar_schema, inserir_filme, listar_filmes
-from app.pessoas import resolver as resolver_pessoa
+from app.pessoas import buscar_por_id, resolver as resolver_pessoa
 from app.metadata import buscar_metadados, buscar_provedores, extract_imdb_id
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -51,6 +51,88 @@ class FilmeResponse(BaseModel):
     titulo: str | None = None
     metadados_encontrados: bool = True
     aviso: str | None = None
+
+
+# --- Contrato de identificacao ---------------------------------------------
+#
+# A casa nao tem senha. O que identifica quem esta usando e o id da pessoa,
+# que o aparelho guarda depois de entrar uma vez.
+#
+# 1. Na primeira visita o aparelho chama POST /api/entrar com o nome digitado
+#    e recebe de volta {id, nome}.
+# 2. Dali em diante, todo pedido que cria ou altera algo manda esse id no
+#    header X-Pessoa-Id.
+#
+# Pedido sem identificacao e recusado com mensagem clara, e id que nao existe
+# mais nao derruba a API: devolve 401 pedindo para entrar de novo, e o
+# aparelho sabe que precisa mostrar a tela de entrada outra vez.
+
+
+class EntrarRequest(BaseModel):
+    nome: str = ""
+
+
+class PessoaResponse(BaseModel):
+    id: int
+    nome: str
+
+
+@app.post("/api/entrar", response_model=PessoaResponse)
+def entrar(payload: EntrarRequest) -> PessoaResponse:
+    """Identifica a pessoa pelo nome digitado e devolve o id que o aparelho guarda.
+
+    Não é login com senha: é só dizer quem você é. Nome que já existe devolve a
+    mesma pessoa, então entrar de novo — em outro aparelho ou depois de limpar
+    os dados — recupera o histórico.
+    """
+    nome = " ".join((payload.nome or "").split())
+    if not nome:
+        raise HTTPException(status_code=400, detail="Digite o seu nome para entrar.")
+
+    conexao = conectar()
+    try:
+        pessoa_id = resolver_pessoa(conexao, nome)
+        pessoa = buscar_por_id(conexao, pessoa_id)
+    finally:
+        conexao.close()
+
+    return PessoaResponse(id=pessoa["id"], nome=pessoa["nome"])
+
+
+def pessoa_do_pedido(x_pessoa_id: str | None = Header(default=None)) -> int:
+    """Descobre de quem é o pedido, a partir do id guardado no aparelho.
+
+    Recusa o pedido quando não vem identificação, e também quando o id aponta
+    para alguém que não existe mais — nesse caso sem estourar erro interno.
+    """
+    bruto = (x_pessoa_id or "").strip()
+    if not bruto:
+        raise HTTPException(
+            status_code=401,
+            detail="Não sabemos quem está enviando. Entre com o seu nome.",
+        )
+
+    try:
+        pessoa_id = int(bruto)
+    except ValueError:
+        raise HTTPException(
+            status_code=401,
+            detail="Identificação inválida. Entre com o seu nome de novo.",
+        )
+
+    conexao = conectar()
+    try:
+        pessoa = buscar_por_id(conexao, pessoa_id)
+    finally:
+        conexao.close()
+
+    if pessoa is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Essa identificação não vale mais. Entre com o seu nome de novo.",
+        )
+
+    return pessoa["id"]
 
 
 def _dados_do_link(url: str) -> tuple[dict, str | None]:
@@ -105,28 +187,19 @@ def _dados_do_link(url: str) -> tuple[dict, str | None]:
 @app.post("/api/filmes", response_model=FilmeResponse, status_code=201)
 def salvar_filme(
     payload: NovoFilmeRequest,
-    x_pessoa_nome: str | None = Header(default=None),
+    pessoa_id: int = Depends(pessoa_do_pedido),
 ) -> FilmeResponse:
     """Salva um filme a partir do link colado.
 
-    Quem sugeriu não vem digitado no corpo do pedido: vem de quem está usando
-    o sistema, pelo header `X-Pessoa-Nome`. Esse header é um contrato
-    provisório — a issue #31 define o definitivo.
+    Quem sugeriu não vem no corpo do pedido: vem de quem está usando o sistema,
+    pelo id que o aparelho guardou ao entrar (ver o contrato acima).
     """
     url = (payload.url or "").strip()
     if not url:
         raise HTTPException(status_code=400, detail="A url do filme é obrigatória.")
 
-    nome = (x_pessoa_nome or "").strip()
-    if not nome:
-        raise HTTPException(
-            status_code=400,
-            detail="Não foi possível identificar quem está enviando.",
-        )
-
     conexao = conectar()
     try:
-        pessoa_id = resolver_pessoa(conexao, nome)
         dados, aviso = _dados_do_link(url)
 
         # Duplicado se checa pelo imdb_id, nunca pela url: a mesma pessoa pode
