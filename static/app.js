@@ -290,6 +290,53 @@ registrarFiltro(function filtroDuracao(filme) {
   return dentroDaFaixa(filme.duracao_min, faixa);
 });
 
+function generosDoFilme(filme) {
+  if (!filme.generos) return [];
+  return String(filme.generos)
+    .split(",")
+    .map((g) => g.trim())
+    .filter(Boolean);
+}
+
+registrarFiltro(function filtroTema(filme) {
+  const tema = valorDoSelect("filtro-tema");
+  if (!tema) return true;
+  const generos = generosDoFilme(filme);
+  if (generos.length === 0) {
+    semDadoNoUltimoFiltro += 1;
+    return true;
+  }
+  // Filme com varios generos aparece em todos eles.
+  return generos.some((g) => g.toLowerCase() === tema.toLowerCase());
+});
+
+// A lista de temas vem dos filmes que existem no banco: nao adianta oferecer
+// um genero que ninguem sugeriu.
+function preencherTemas(filmes) {
+  const select = document.getElementById("filtro-tema");
+  if (!select) return;
+  const atual = select.value;
+  const temas = new Set();
+  filmes.forEach((filme) => generosDoFilme(filme).forEach((g) => temas.add(g)));
+
+  select.innerHTML = "";
+  const vazio = document.createElement("option");
+  vazio.value = "";
+  vazio.textContent = "Qualquer tema";
+  select.appendChild(vazio);
+
+  [...temas].sort((a, b) => a.localeCompare(b, "pt-BR")).forEach((tema) => {
+    const opcao = document.createElement("option");
+    opcao.value = tema;
+    opcao.textContent = tema;
+    select.appendChild(opcao);
+  });
+
+  if (atual && temas.has(atual)) {
+    select.value = atual;
+  }
+}
+
 function filtrarLista(filmes) {
   semDadoNoUltimoFiltro = 0;
   return filmes.filter((filme) => FILTROS.every((fn) => fn(filme)));
@@ -367,6 +414,7 @@ async function carregarFilmes() {
 
     mostrarMensagemLista(null);
     const fragmento = document.createDocumentFragment();
+    preencherTemas(filmes);
     const visiveis = ordenarLista(filtrarLista(filmes), criterioAtual());
     avisarSobreDadosAusentes();
 
@@ -388,7 +436,7 @@ async function carregarFilmes() {
 document.addEventListener("filmes:atualizar", carregarFilmes);
 
 document.addEventListener("DOMContentLoaded", () => {
-  ["ordenacao", "filtro-duracao"].forEach((id) => {
+  ["ordenacao", "filtro-duracao", "filtro-tema"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener("change", carregarFilmes);
