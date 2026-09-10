@@ -278,6 +278,49 @@ def remover_filme(filme_id: int) -> None:
         conexao.close()
 
 
+@app.post("/api/provedores/atualizar")
+def atualizar_provedores(limite: int = 20) -> dict:
+    """Reconsulta onde assistir os filmes que ainda estão na fila.
+
+    Catálogo de streaming muda o tempo todo, então a informação envelhece
+    sozinha. Reconsulta primeiro os que estão há mais tempo sem atualização.
+
+    Só mexe em quem está em `quero_ver`: filme já assistido não precisa.
+    """
+    conexao = conectar()
+    atualizados = 0
+    try:
+        linhas = conexao.execute(
+            "SELECT id, imdb_id FROM filmes "
+            "WHERE status = 'quero_ver' AND imdb_id IS NOT NULL "
+            "ORDER BY provedores_atualizado_em IS NOT NULL, "
+            "         provedores_atualizado_em ASC, id ASC "
+            "LIMIT ?",
+            (limite,),
+        ).fetchall()
+
+        for linha in linhas:
+            try:
+                provedores = buscar_provedores(linha["imdb_id"])
+            except Exception:
+                continue
+            conexao.execute(
+                "UPDATE filmes SET provedores = ?, provedores_atualizado_em = ? "
+                "WHERE id = ?",
+                (
+                    json.dumps(provedores, ensure_ascii=False),
+                    date.today().isoformat(),
+                    linha["id"],
+                ),
+            )
+            atualizados += 1
+        conexao.commit()
+    finally:
+        conexao.close()
+
+    return {"verificados": len(linhas), "atualizados": atualizados}
+
+
 @app.get("/api/filmes")
 def get_filmes() -> list[dict]:
     """Lista os filmes salvos, do mais recente para o mais antigo.
