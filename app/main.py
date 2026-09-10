@@ -234,6 +234,37 @@ def mudar_status(filme_id: int, payload: StatusRequest) -> dict:
     return dict(linha)
 
 
+class NotaRequest(BaseModel):
+    nota: float | None = None
+
+
+@app.patch("/api/filmes/{filme_id}/nota")
+def dar_nota(filme_id: int, payload: NotaRequest) -> dict:
+    """Registra a nota que a família deu ao filme.
+
+    A escala é de 0 a 10, a mesma do IMDb, para não confundir quem lê o card.
+    Mandar `nota: null` apaga a nota.
+    """
+    nota = payload.nota
+    if nota is not None and not (0 <= nota <= 10):
+        raise HTTPException(status_code=400, detail="A nota vai de 0 a 10.")
+
+    conexao = conectar()
+    try:
+        if conexao.execute("SELECT id FROM filmes WHERE id = ?", (filme_id,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="Filme não encontrado.")
+        conexao.execute(
+            "UPDATE filmes SET nota_familia = ? WHERE id = ?", (nota, filme_id)
+        )
+        conexao.commit()
+        linha = conexao.execute(
+            "SELECT id, nota_imdb, nota_familia FROM filmes WHERE id = ?", (filme_id,)
+        ).fetchone()
+    finally:
+        conexao.close()
+    return dict(linha)
+
+
 @app.get("/api/filmes")
 def get_filmes() -> list[dict]:
     """Lista os filmes salvos, do mais recente para o mais antigo.

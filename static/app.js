@@ -184,6 +184,15 @@ function textoServicos(filme) {
   return nomes.length ? nomes.join(", ") : "Não disponível nos serviços conhecidos";
 }
 
+// A nota da familia e a do IMDb aparecem separadas e rotuladas, para nao
+// virarem um numero solto que ninguem sabe de onde veio.
+function textoNotas(filme) {
+  const partes = [];
+  if (filme.nota_imdb != null) partes.push(`IMDb ${filme.nota_imdb}`);
+  if (filme.nota_familia != null) partes.push(`Família ${filme.nota_familia}`);
+  return partes.join(" · ");
+}
+
 function criarCard(filme) {
   const card = document.createElement("article");
   card.className = "filme-card";
@@ -283,6 +292,18 @@ function dentroDaFaixa(duracao, faixa) {
   if (faixa === "medio") return duracao > 90 && duracao <= 120;
   if (faixa === "longo") return duracao > 120;
   return true;
+}
+
+// Ordenacao extra: pela nota que a familia deu.
+function ordenarPorNotaFamilia(lista) {
+  return [...lista].sort((a, b) => {
+    const na = a.nota_familia;
+    const nb = b.nota_familia;
+    if (na == null && nb == null) return 0;
+    if (na == null) return 1;
+    if (nb == null) return -1;
+    return nb - na;
+  });
 }
 
 registrarFiltro(function filtroDuracao(filme) {
