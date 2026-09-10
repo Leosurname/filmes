@@ -1,5 +1,6 @@
 """Rotas da API e servidor da aplicação Filmes da Família."""
 
+import json
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
@@ -10,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.db import conectar, criar_schema, inserir_filme, listar_filmes
+from app.metadata import buscar_metadados, buscar_provedores, extract_imdb_id
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
@@ -45,6 +47,9 @@ class FilmeResponse(BaseModel):
     pessoa_id: int
     data_sugestao: str
     status: str
+    titulo: str | None = None
+    metadados_encontrados: bool = True
+    aviso: str | None = None
 
 
 def _resolver_pessoa(conexao, nome: str) -> int:
@@ -67,6 +72,55 @@ def _resolver_pessoa(conexao, nome: str) -> int:
     )
     conexao.commit()
     return cursor.lastrowid
+
+
+def _dados_do_link(url: str) -> tuple[dict, str | None]:
+    """Descobre o que der sobre o filme a partir do link.
+
+    Nunca levanta erro: se o link não for identificável, se a OMDb não achar o
+    filme ou se a rede falhar, devolve o que conseguiu e um aviso para a
+    pessoa. A sugestão é salva de qualquer jeito — ninguém perde a indicação.
+    """
+    imdb_id = extract_imdb_id(url)
+    if not imdb_id:
+        return {}, (
+            "Não deu para identificar o filme por esse link. "
+            "Ele foi salvo assim mesmo, e os dados podem ser preenchidos depois."
+        )
+
+    dados: dict = {"imdb_id": imdb_id}
+
+    try:
+        metadados = buscar_metadados(imdb_id)
+    except Exception:
+        metadados = None
+
+    if not metadados:
+        return dados, (
+            "O filme foi salvo, mas não achamos os dados dele agora. "
+            "Dá para tentar de novo mais tarde."
+        )
+
+    dados.update(
+        {
+            "titulo": metadados.get("titulo"),
+            "ano": metadados.get("ano"),
+            "duracao_min": metadados.get("duracao_min"),
+            "generos": metadados.get("generos"),
+            "classificacao": metadados.get("classificacao"),
+            "nota_imdb": metadados.get("nota_imdb"),
+            "sinopse": metadados.get("sinopse"),
+        }
+    )
+
+    try:
+        provedores = buscar_provedores(imdb_id)
+        if provedores:
+            dados["provedores"] = json.dumps(provedores, ensure_ascii=False)
+    except Exception:
+        pass
+
+    return dados, None
 
 
 @app.post("/api/filmes", response_model=FilmeResponse, status_code=201)
@@ -94,23 +148,28 @@ def salvar_filme(
     conexao = conectar()
     try:
         pessoa_id = _resolver_pessoa(conexao, nome)
-        filme_id = inserir_filme(
-            conexao,
-            {
-                "url_original": url,
-                "pessoa_id": pessoa_id,
-                "data_sugestao": date.today().isoformat(),
-                "status": "quero_ver",
-            },
-        )
+        dados, aviso = _dados_do_link(url)
+        registro = {
+            "url_original": url,
+            "pessoa_id": pessoa_id,
+            "data_sugestao": date.today().isoformat(),
+            "status": "quero_ver",
+        }
+        registro.update(dados)
+        filme_id = inserir_filme(conexao, registro)
         linha = conexao.execute(
-            "SELECT id, url_original, pessoa_id, data_sugestao, status FROM filmes WHERE id = ?",
+            "SELECT id, url_original, pessoa_id, data_sugestao, status, titulo "
+            "FROM filmes WHERE id = ?",
             (filme_id,),
         ).fetchone()
     finally:
         conexao.close()
 
-    return FilmeResponse(**dict(linha))
+    return FilmeResponse(
+        **dict(linha),
+        metadados_encontrados=aviso is None,
+        aviso=aviso,
+    )
 
 
 @app.get("/api/filmes")
