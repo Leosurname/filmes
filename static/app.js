@@ -1,21 +1,82 @@
-// Identificacao do aparelho: guardamos o id da pessoa depois de entrar uma
-// vez, e mandamos esse id em todo pedido que cria ou altera algo.
+// --- Identificacao guardada no aparelho ------------------------------------
+//
+// Depois de entrar uma vez, o aparelho guarda quem e a pessoa e nao pergunta
+// mais. O que fica guardado e o id e o nome, no armazenamento local do proprio
+// site: nao e cookie, entao nao vai junto nos pedidos nem serve para rastrear
+// ninguem fora daqui.
+//
+// Nao existe prazo de validade. Fechar a aba, fechar o navegador ou reiniciar o
+// celular nao apagam nada. So some se a pessoa limpar os dados do navegador,
+// que e o caso tratado na issue #33.
+//
+// Quando o armazenamento esta bloqueado (aba anonima em alguns navegadores,
+// configuracao restritiva), nada disso funciona. Nesse caso a pagina avisa em
+// vez de quebrar, e a identificacao vale so enquanto a aba estiver aberta.
+
 const CHAVE_PESSOA = "filmes:pessoa";
 
+// Guarda a pessoa desta visita quando o armazenamento nao esta disponivel.
+let pessoaSoNestaVisita = null;
+let armazenamentoBloqueado = false;
+
+function armazenamentoDisponivel() {
+  try {
+    const teste = "filmes:teste";
+    window.localStorage.setItem(teste, "1");
+    window.localStorage.removeItem(teste);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function pessoaValida(pessoa) {
+  return Boolean(pessoa) && typeof pessoa.id === "number" && Boolean(pessoa.nome);
+}
+
 function pessoaGuardada() {
+  if (pessoaSoNestaVisita) return pessoaSoNestaVisita;
   try {
     const bruto = window.localStorage.getItem(CHAVE_PESSOA);
-    return bruto ? JSON.parse(bruto) : null;
+    if (!bruto) return null;
+    const pessoa = JSON.parse(bruto);
+    // Guardado corrompido ou de uma versao antiga: trata como se nao houvesse.
+    return pessoaValida(pessoa) ? pessoa : null;
   } catch (e) {
     return null;
   }
 }
 
 function guardarPessoa(pessoa) {
+  pessoaSoNestaVisita = pessoa;
   try {
     window.localStorage.setItem(CHAVE_PESSOA, JSON.stringify(pessoa));
+    armazenamentoBloqueado = false;
   } catch (e) {
-    // Armazenamento bloqueado: segue valendo so nesta visita.
+    armazenamentoBloqueado = true;
+  }
+}
+
+function esquecerPessoa() {
+  pessoaSoNestaVisita = null;
+  try {
+    window.localStorage.removeItem(CHAVE_PESSOA);
+  } catch (e) {
+    // Nada a fazer: ja nao havia o que apagar.
+  }
+}
+
+function avisarSeArmazenamentoBloqueado() {
+  const aviso = document.getElementById("aviso-armazenamento");
+  if (!aviso) return;
+  const bloqueado = armazenamentoBloqueado || !armazenamentoDisponivel();
+  if (bloqueado) {
+    aviso.textContent =
+      "Este navegador não está deixando guardar dados, então vamos perguntar " +
+      "o seu nome de novo na próxima visita.";
+    aviso.hidden = false;
+  } else {
+    aviso.hidden = true;
   }
 }
 
@@ -26,10 +87,11 @@ async function entrarComNome(nome) {
     body: JSON.stringify({ nome })
   });
   if (!resposta.ok) {
-    throw new Error("Nao foi possivel entrar.");
+    throw new Error("Não foi possível entrar.");
   }
   const pessoa = await resposta.json();
   guardarPessoa(pessoa);
+  avisarSeArmazenamentoBloqueado();
   return pessoa;
 }
 
