@@ -1,85 +1,211 @@
-"""Rotas da API e servidor.
+"""Rotas da API e servidor da aplicação Filmes da Família."""
 
-Escopo mínimo para a issue #10 (avisar quando o filme já está na lista):
-- POST /api/filmes: salva um filme a partir do link, checando duplicado
-  pelo imdb_id. Se já existir, responde 409 com quem sugeriu e quando.
-- GET /api/filmes: lista os filmes salvos.
+import json
+from contextlib import asynccontextmanager
+from datetime import date
+from pathlib import Path
 
-A busca de metadados na OMDb/TMDB (título, ano, duração, pôster, onde
-assistir...) e o tratamento completo de link inválido ficam para as
-issues #7, #8 e #9.
-"""
-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from app import db
-from app.metadata import extrair_imdb_id
+from app.db import conectar, criar_schema, inserir_filme, listar_filmes
+from app.metadata import buscar_metadados, buscar_provedores, extract_imdb_id
 
-app = FastAPI(title="Filmes da Família")
-
-
-@app.on_event("startup")
-def _startup() -> None:
-    db.init_db()
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / "static"
 
 
-class NovoFilme(BaseModel):
-    url: str
-    nome: str
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Garante que o banco e o schema existem antes de atender qualquer pedido."""
+    conexao = conectar()
+    try:
+        criar_schema(conexao)
+    finally:
+        conexao.close()
+    yield
 
 
-def _filme_para_json(row) -> dict:
-    return {
-        "id": row["id"],
-        "url_original": row["url_original"],
-        "imdb_id": row["imdb_id"],
-        "sugerido_por": row["pessoa_nome"],
-        "data_sugestao": row["data_sugestao"],
-    }
+app = FastAPI(title="Filmes da Família", lifespan=lifespan)
 
 
-@app.post("/api/filmes")
-def criar_filme(payload: NovoFilme):
-    nome = payload.nome.strip()
-    if not nome:
-        raise HTTPException(status_code=400, detail="Informe o seu nome.")
+@app.get("/")
+def index() -> FileResponse:
+    """Serve a página inicial estática."""
+    return FileResponse(STATIC_DIR / "index.html")
 
-    imdb_id = extrair_imdb_id(payload.url)
+
+class NovoFilmeRequest(BaseModel):
+    url: str = Field(default="")
+
+
+class FilmeResponse(BaseModel):
+    id: int
+    url_original: str
+    pessoa_id: int
+    data_sugestao: str
+    status: str
+    titulo: str | None = None
+    metadados_encontrados: bool = True
+    aviso: str | None = None
+
+
+def _resolver_pessoa(conexao, nome: str) -> int:
+    """Devolve o id da pessoa com esse nome, criando o registro se for a primeira vez.
+
+    A comparação ignora maiúsculas e espaços nas pontas, para "Leo" e "leo "
+    não virarem duas pessoas. O tratamento de acentos e o contrato definitivo
+    de identificação são das issues #25 e #31, ainda não implementadas.
+    """
+    linha = conexao.execute(
+        "SELECT id FROM pessoas WHERE lower(trim(nome)) = lower(trim(?))",
+        (nome,),
+    ).fetchone()
+    if linha is not None:
+        return linha["id"]
+
+    cursor = conexao.execute(
+        "INSERT INTO pessoas (nome, data_entrada) VALUES (?, ?)",
+        (nome.strip(), date.today().isoformat()),
+    )
+    conexao.commit()
+    return cursor.lastrowid
+
+
+def _dados_do_link(url: str) -> tuple[dict, str | None]:
+    """Descobre o que der sobre o filme a partir do link.
+
+    Nunca levanta erro: se o link não for identificável, se a OMDb não achar o
+    filme ou se a rede falhar, devolve o que conseguiu e um aviso para a
+    pessoa. A sugestão é salva de qualquer jeito — ninguém perde a indicação.
+    """
+    imdb_id = extract_imdb_id(url)
     if not imdb_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Não foi possível identificar o filme nesse link.",
+        return {}, (
+            "Não deu para identificar o filme por esse link. "
+            "Ele foi salvo assim mesmo, e os dados podem ser preenchidos depois."
         )
 
-    conn = db.get_connection()
-    try:
-        existente = db.find_filme_by_imdb_id(conn, imdb_id)
-        if existente:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "mensagem": "Esse filme já está na lista.",
-                    "filme": _filme_para_json(existente),
-                },
-            )
+    dados: dict = {"imdb_id": imdb_id}
 
-        pessoa = db.get_or_create_pessoa(conn, nome)
-        filme = db.insert_filme(conn, payload.url.strip(), imdb_id, pessoa["id"])
-        return _filme_para_json(filme)
+    try:
+        metadados = buscar_metadados(imdb_id)
+    except Exception:
+        metadados = None
+
+    if not metadados:
+        return dados, (
+            "O filme foi salvo, mas não achamos os dados dele agora. "
+            "Dá para tentar de novo mais tarde."
+        )
+
+    dados.update(
+        {
+            "titulo": metadados.get("titulo"),
+            "ano": metadados.get("ano"),
+            "duracao_min": metadados.get("duracao_min"),
+            "generos": metadados.get("generos"),
+            "classificacao": metadados.get("classificacao"),
+            "nota_imdb": metadados.get("nota_imdb"),
+            "sinopse": metadados.get("sinopse"),
+        }
+    )
+
+    try:
+        provedores = buscar_provedores(imdb_id)
+        if provedores:
+            dados["provedores"] = json.dumps(provedores, ensure_ascii=False)
+    except Exception:
+        pass
+
+    return dados, None
+
+
+@app.post("/api/filmes", response_model=FilmeResponse, status_code=201)
+def salvar_filme(
+    payload: NovoFilmeRequest,
+    x_pessoa_nome: str | None = Header(default=None),
+) -> FilmeResponse:
+    """Salva um filme a partir do link colado.
+
+    Quem sugeriu não vem digitado no corpo do pedido: vem de quem está usando
+    o sistema, pelo header `X-Pessoa-Nome`. Esse header é um contrato
+    provisório — a issue #31 define o definitivo.
+    """
+    url = (payload.url or "").strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="A url do filme é obrigatória.")
+
+    nome = (x_pessoa_nome or "").strip()
+    if not nome:
+        raise HTTPException(
+            status_code=400,
+            detail="Não foi possível identificar quem está enviando.",
+        )
+
+    conexao = conectar()
+    try:
+        pessoa_id = _resolver_pessoa(conexao, nome)
+        dados, aviso = _dados_do_link(url)
+
+        # Duplicado se checa pelo imdb_id, nunca pela url: a mesma pessoa pode
+        # colar links diferentes do mesmo filme.
+        imdb_id = dados.get("imdb_id")
+        if imdb_id:
+            ja_existe = conexao.execute(
+                "SELECT f.id, f.titulo, f.data_sugestao, p.nome "
+                "FROM filmes f LEFT JOIN pessoas p ON p.id = f.pessoa_id "
+                "WHERE f.imdb_id = ? ORDER BY f.id LIMIT 1",
+                (imdb_id,),
+            ).fetchone()
+            if ja_existe is not None:
+                quem = ja_existe["nome"] or "alguém da casa"
+                titulo = ja_existe["titulo"] or "Esse filme"
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"{titulo} já está na lista: {quem} sugeriu "
+                        f"em {ja_existe['data_sugestao']}."
+                    ),
+                )
+
+        registro = {
+            "url_original": url,
+            "pessoa_id": pessoa_id,
+            "data_sugestao": date.today().isoformat(),
+            "status": "quero_ver",
+        }
+        registro.update(dados)
+        filme_id = inserir_filme(conexao, registro)
+        linha = conexao.execute(
+            "SELECT id, url_original, pessoa_id, data_sugestao, status, titulo "
+            "FROM filmes WHERE id = ?",
+            (filme_id,),
+        ).fetchone()
     finally:
-        conn.close()
+        conexao.close()
+
+    return FilmeResponse(
+        **dict(linha),
+        metadados_encontrados=aviso is None,
+        aviso=aviso,
+    )
 
 
 @app.get("/api/filmes")
-def listar_filmes():
-    conn = db.get_connection()
+def get_filmes() -> list[dict]:
+    """Lista os filmes salvos, do mais recente para o mais antigo.
+
+    Devolve todos os campos de cada filme e uma lista vazia — nunca um erro —
+    quando ainda não há nada salvo.
+    """
+    conexao = conectar()
     try:
-        filmes = db.list_filmes(conn)
-        return [_filme_para_json(f) for f in filmes]
+        return [dict(linha) for linha in listar_filmes(conexao)]
     finally:
-        conn.close()
+        conexao.close()
 
 
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
