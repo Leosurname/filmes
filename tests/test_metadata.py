@@ -62,7 +62,8 @@ class TestBuscarMetadados(unittest.TestCase):
                 "ano": 1994,
                 "duracao_min": 142,
                 "generos": "Drama",
-                "classificacao": "R",
+                # Desde o #51 a classificacao vem convertida para o padrao brasileiro.
+                "classificacao": "16",
                 "nota_imdb": 9.3,
                 "sinopse": "Two imprisoned men bond over a number of years.",
             },
