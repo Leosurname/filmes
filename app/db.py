@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS filmes (
     pessoa_id INTEGER,
     data_sugestao TEXT,
     status TEXT,
+    data_assistido TEXT,
     nota_familia REAL,
     FOREIGN KEY (pessoa_id) REFERENCES pessoas (id)
 );
@@ -59,6 +60,7 @@ COLUNAS_FILMES = [
     "pessoa_id",
     "data_sugestao",
     "status",
+    "data_assistido",
     "nota_familia",
 ]
 

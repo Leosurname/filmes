@@ -194,6 +194,46 @@ def salvar_filme(
     )
 
 
+class StatusRequest(BaseModel):
+    status: str
+
+
+@app.patch("/api/filmes/{filme_id}/status")
+def mudar_status(filme_id: int, payload: StatusRequest) -> dict:
+    """Move o filme entre `quero_ver` e `assistido`.
+
+    Aceita os dois sentidos, então dá para desfazer se alguém clicar errado.
+    """
+    novo = (payload.status or "").strip()
+    if novo not in ("quero_ver", "assistido"):
+        raise HTTPException(
+            status_code=400,
+            detail="Status inválido. Use 'quero_ver' ou 'assistido'.",
+        )
+
+    conexao = conectar()
+    try:
+        atual = conexao.execute(
+            "SELECT id FROM filmes WHERE id = ?", (filme_id,)
+        ).fetchone()
+        if atual is None:
+            raise HTTPException(status_code=404, detail="Filme não encontrado.")
+
+        data_assistido = date.today().isoformat() if novo == "assistido" else None
+        conexao.execute(
+            "UPDATE filmes SET status = ?, data_assistido = ? WHERE id = ?",
+            (novo, data_assistido, filme_id),
+        )
+        conexao.commit()
+        linha = conexao.execute(
+            "SELECT id, status, data_assistido FROM filmes WHERE id = ?", (filme_id,)
+        ).fetchone()
+    finally:
+        conexao.close()
+
+    return dict(linha)
+
+
 @app.get("/api/filmes")
 def get_filmes() -> list[dict]:
     """Lista os filmes salvos, do mais recente para o mais antigo.
