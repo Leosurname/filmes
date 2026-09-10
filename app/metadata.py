@@ -1,16 +1,20 @@
-"""Busca de metadados de filmes na OMDb API (https://omdbapi.com).
+"""Identificacao do filme a partir do link e busca de metadados.
 
-A OMDb serve os dados do IMDb (não há API pública gratuita do próprio IMDb,
-ver a seção "Fonte dos dados" do plan.md).
+Duas responsabilidades, nesta ordem:
 
-A chave é lida de OMDB_API_KEY no arquivo .env — nunca fica escrita no código.
-Quando a chave não está configurada, o filme não é encontrado, ou a chamada
-falha por qualquer motivo de rede, `buscar_metadados` retorna `None` e quem
-chamar deve salvar o filme mesmo assim, só sem os metadados.
+1. `extract_imdb_id` tira o `imdb_id` da URL colada, sem chamada de rede.
+2. `buscar_metadados` consulta a OMDb com esse id. A OMDb serve os dados do
+   IMDb, que nao tem API publica gratuita (ver "Fonte dos dados" no plan.md).
+
+A chave e lida de OMDB_API_KEY no .env e nunca fica escrita no codigo. Quando
+a chave nao esta configurada, o filme nao e encontrado, ou a chamada falha,
+`buscar_metadados` devolve `None` e quem chamar deve salvar o filme mesmo
+assim, so sem os metadados.
 """
 from __future__ import annotations
 
 import os
+import re
 from typing import Optional, TypedDict
 
 import requests
@@ -20,6 +24,30 @@ load_dotenv()
 
 OMDB_URL = "https://www.omdbapi.com/"
 
+
+# Casa com "tt" + um ou mais dígitos, em qualquer trecho da URL
+# (path, querystring, etc.), sem exigir barras específicas ao redor.
+_IMDB_ID_PATTERN = re.compile(r"(tt\d+)")
+
+
+def extract_imdb_id(url: str) -> str:
+    """Extrai o `imdb_id` (ex.: ``tt0111161``) de um link do IMDb.
+
+    Funciona com qualquer formato de link do IMDb (com ou sem ``www``,
+    domínio ``imdb.com`` ou ``m.imdb.com``, com ou sem barra final) e
+    ignora parâmetros extras na URL (ex.: ``?ref_=...``).
+
+    Se não for possível identificar o filme a partir da URL, devolve uma
+    string vazia — nunca lança exceção.
+    """
+    if not url or not isinstance(url, str):
+        return ""
+
+    match = _IMDB_ID_PATTERN.search(url)
+    if not match:
+        return ""
+
+    return match.group(1)
 
 class MetadadosFilme(TypedDict):
     titulo: str
