@@ -1,46 +1,83 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Filmes da Família</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>Filmes da Família</h1>
+  <main class="pagina">
+    <h1 class="titulo">Filmes da Família</h1>
+    <p class="subtitulo">Cole o link do filme para adicionar na lista.</p>
 
-    <nav class="visoes" aria-label="Alternar visão da lista">
-      <button type="button" id="btn-quero-ver" class="visao-btn ativo" data-status="quero_ver">
-        Quero ver
+    <form id="form-filme" class="form-filme" novalidate>
+      <label for="link-filme" class="rotulo">Link do filme</label>
+      <input
+        id="link-filme"
+        name="link"
+        type="url"
+        inputmode="url"
+        placeholder="https://www.imdb.com/title/..."
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        required
+      >
+      <button id="botao-enviar" type="submit" class="botao-enviar">
+        <span class="botao-texto">Adicionar filme</span>
       </button>
-      <button type="button" id="btn-assistidos" class="visao-btn" data-status="assistido">
-        Já assistimos
-      </button>
-    </nav>
-
-    <form id="filtros" class="filtros">
-      <label>
-        Gênero
-        <select id="filtro-genero">
-          <option value="">Todos</option>
-        </select>
-      </label>
-
-      <label>
-        Duração máxima
-        <select id="filtro-duracao">
-          <option value="">Sem limite</option>
-          <option value="90">Até 90 min</option>
-          <option value="120">Até 120 min</option>
-        </select>
-      </label>
     </form>
-  </header>
 
-  <main>
-    <p id="vazio" hidden>Nenhum filme encontrado com esses filtros.</p>
-    <ul id="lista-filmes" class="lista-filmes"></ul>
+    <div id="mensagem" class="mensagem" role="status" aria-live="polite" hidden></div>
+
+    <div class="ordenacao-linha">
+      <label for="ordenacao" class="rotulo">Ordenar por</label>
+      <select id="ordenacao">
+        <option value="recente">Mais recente</option>
+        <option value="nota">Maior nota do IMDb</option>
+        <option value="duracao">Menor duração</option>
+      </select>
+    </div>
+
+    <div class="visoes" role="radiogroup" aria-label="Visão da lista">
+      <label><input type="radio" name="visao" value="quero_ver" checked> Quero ver</label>
+      <label><input type="radio" name="visao" value="assistido"> Já assistimos</label>
+    </div>
+
+    <div class="filtros-linha">
+      <label for="filtro-duracao" class="rotulo">Duração</label>
+      <select id="filtro-duracao">
+        <option value="">Qualquer duração</option>
+        <option value="curto">Até 90 min</option>
+        <option value="medio">De 90 a 120 min</option>
+        <option value="longo">Mais de 2 h</option>
+      </select>
+      <label for="filtro-tema" class="rotulo">Tema</label>
+      <select id="filtro-tema">
+        <option value="">Qualquer tema</option>
+      </select>
+      <label for="filtro-classificacao" class="rotulo">Classificação</label>
+      <select id="filtro-classificacao">
+        <option value="">Qualquer classificação</option>
+        <option value="L">Livre</option>
+        <option value="10">Até 10 anos</option>
+        <option value="12">Até 12 anos</option>
+        <option value="14">Até 14 anos</option>
+        <option value="16">Até 16 anos</option>
+        <option value="18">Até 18 anos</option>
+      </select>
+      <label for="filtro-servico" class="rotulo">Onde assistir</label>
+      <select id="filtro-servico">
+        <option value="">Qualquer serviço</option>
+      </select>
+    </div>
+
+    <p id="aviso-filtro" class="aviso-filtro" hidden></p>
+
+    <p id="filmes-mensagem" class="filmes-mensagem" hidden></p>
+    <section id="filmes-grid" class="filmes-grid" aria-live="polite"></section>
   </main>
 
   <script src="app.js"></script>

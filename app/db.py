@@ -1,96 +1,132 @@
-"""Criacao do banco SQLite e queries relacionadas a lista de filmes.
+"""Conexao com o SQLite e schema das tabelas `pessoas` e `filmes`.
 
-Escopo desta issue (#20): apenas o suficiente para separar a lista em duas
-visoes ("quero_ver" e "assistido") e permitir filtrar por genero e duracao
-nas duas. Campos de outras issues (pessoa que sugeriu, provedores, etc.) nao
-fazem parte deste banco minimo.
+Cobre a Issue #2 (Fase 1 do plan.md): criar o banco, criar a tabela e
+oferecer funcoes basicas de inserir e listar filmes.
 """
+
+from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from typing import Any
 
+# Caminho do banco na raiz do projeto (ao lado da pasta app/).
 DB_PATH = Path(__file__).resolve().parent.parent / "filmes.db"
 
-SCHEMA = """
+CRIAR_TABELA_PESSOAS = """
+CREATE TABLE IF NOT EXISTS pessoas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    data_entrada TEXT NOT NULL
+);
+"""
+
+CRIAR_TABELA_FILMES = """
 CREATE TABLE IF NOT EXISTS filmes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    titulo TEXT NOT NULL,
+    url_original TEXT,
+    imdb_id TEXT,
+    titulo TEXT,
     ano INTEGER,
     duracao_min INTEGER,
     generos TEXT,
     classificacao TEXT,
     nota_imdb REAL,
-    status TEXT NOT NULL DEFAULT 'quero_ver',
+    sinopse TEXT,
+    poster_url TEXT,
+    provedores TEXT,
+    pessoa_id INTEGER,
     data_sugestao TEXT,
+    status TEXT,
     data_assistido TEXT,
-    nota_familia REAL
+    nota_familia REAL,
+    FOREIGN KEY (pessoa_id) REFERENCES pessoas (id)
 );
 """
 
-SEED = [
-    # titulo, ano, duracao_min, generos, classificacao, nota_imdb, status, data_sugestao, data_assistido, nota_familia
-    ("O Iluminado", 1980, 146, "Terror", "16", 8.4, "assistido", "2026-08-01", "2026-08-15", 9.0),
-    ("Toy Story", 1995, 81, "Animação", "Livre", 8.3, "assistido", "2026-08-02", "2026-08-20", 9.5),
-    ("Divertida Mente", 2015, 95, "Animação", "Livre", 8.1, "quero_ver", "2026-09-01", None, None),
-    ("Um Lugar Silencioso", 2018, 90, "Terror", "14", 7.5, "quero_ver", "2026-09-02", None, None),
-    ("A Forma da Água", 2017, 123, "Drama", "16", 7.3, "assistido", "2026-08-05", "2026-08-25", 7.0),
-    ("Se Beber, Não Case!", 2009, 100, "Comédia", "16", 7.7, "quero_ver", "2026-09-03", None, None),
+# Colunas na mesma ordem usada por inserir_filme / listar_filmes.
+COLUNAS_FILMES = [
+    "url_original",
+    "imdb_id",
+    "titulo",
+    "ano",
+    "duracao_min",
+    "generos",
+    "classificacao",
+    "nota_imdb",
+    "sinopse",
+    "poster_url",
+    "provedores",
+    "pessoa_id",
+    "data_sugestao",
+    "status",
+    "data_assistido",
+    "nota_familia",
 ]
 
 
-def conectar() -> sqlite3.Connection:
-    conexao = sqlite3.connect(DB_PATH)
+def conectar(db_path: Path | str = DB_PATH) -> sqlite3.Connection:
+    """Abre uma conexao com o banco, criando o arquivo se nao existir.
+
+    `row_factory` fica configurada como `sqlite3.Row` para que as linhas
+    possam ser lidas tanto por indice quanto por nome de coluna.
+    """
+    conexao = sqlite3.connect(db_path)
     conexao.row_factory = sqlite3.Row
+    conexao.execute("PRAGMA foreign_keys = ON;")
     return conexao
 
 
-def inicializar_banco() -> None:
-    conexao = conectar()
+def criar_schema(conexao: sqlite3.Connection | None = None) -> None:
+    """Cria as tabelas `pessoas` e `filmes` caso ainda nao existam.
+
+    A ordem importa: `filmes.pessoa_id` referencia `pessoas.id`.
+    """
+    conexao_propria = conexao is None
+    conn = conexao or conectar()
     try:
-        conexao.execute(SCHEMA)
-        conexao.commit()
-        total = conexao.execute("SELECT COUNT(*) AS total FROM filmes").fetchone()["total"]
-        if total == 0:
-            conexao.executemany(
-                """
-                INSERT INTO filmes (
-                    titulo, ano, duracao_min, generos, classificacao,
-                    nota_imdb, status, data_sugestao, data_assistido, nota_familia
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                SEED,
-            )
-            conexao.commit()
+        conn.execute(CRIAR_TABELA_PESSOAS)
+        conn.execute(CRIAR_TABELA_FILMES)
+        conn.commit()
     finally:
-        conexao.close()
+        if conexao_propria:
+            conn.close()
 
 
-def listar_filmes(status: str, genero: str | None, duracao_max: int | None):
-    query = "SELECT * FROM filmes WHERE status = ?"
-    parametros: list = [status]
-
-    if genero:
-        query += " AND generos LIKE ?"
-        parametros.append(f"%{genero}%")
-
-    if duracao_max is not None:
-        query += " AND duracao_min <= ?"
-        parametros.append(duracao_max)
-
-    query += " ORDER BY data_sugestao DESC"
-
-    conexao = conectar()
-    try:
-        linhas = conexao.execute(query, parametros).fetchall()
-        return [dict(linha) for linha in linhas]
-    finally:
-        conexao.close()
+def inicializar_banco(db_path: Path | str = DB_PATH) -> sqlite3.Connection:
+    """Garante que o arquivo do banco e o schema existem e devolve a conexao."""
+    conn = conectar(db_path)
+    criar_schema(conn)
+    return conn
 
 
-def listar_generos() -> list[str]:
-    conexao = conectar()
-    try:
-        linhas = conexao.execute("SELECT DISTINCT generos FROM filmes").fetchall()
-        return sorted({linha["generos"] for linha in linhas if linha["generos"]})
-    finally:
-        conexao.close()
+def inserir_filme(conexao: sqlite3.Connection, filme: dict[str, Any]) -> int:
+    """Insere um filme na tabela e devolve o `id` gerado.
+
+    `filme` e um dicionario com qualquer subconjunto das colunas de
+    `COLUNAS_FILMES`; colunas ausentes ficam com NULL.
+    """
+    colunas = [coluna for coluna in COLUNAS_FILMES if coluna in filme]
+    valores = [filme[coluna] for coluna in colunas]
+    placeholders = ", ".join("?" for _ in colunas)
+    colunas_sql = ", ".join(colunas)
+
+    cursor = conexao.execute(
+        f"INSERT INTO filmes ({colunas_sql}) VALUES ({placeholders});",
+        valores,
+    )
+    conexao.commit()
+    return cursor.lastrowid
+
+
+def listar_filmes(conexao: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Lista todos os filmes cadastrados, do mais recente para o mais antigo."""
+    cursor = conexao.execute("SELECT * FROM filmes ORDER BY id DESC;")
+    return cursor.fetchall()
+
+
+if __name__ == "__main__":
+    # Execucao manual: garante que o banco e a tabela existem.
+    conexao = inicializar_banco()
+    print(f"Banco pronto em: {DB_PATH}")
+    conexao.close()
