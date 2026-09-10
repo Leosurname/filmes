@@ -17,6 +17,7 @@ CRIAR_TABELA_PESSOAS = """
 CREATE TABLE IF NOT EXISTS pessoas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nome TEXT NOT NULL,
+    nome_normalizado TEXT NOT NULL UNIQUE,
     data_entrada TEXT NOT NULL
 );
 """

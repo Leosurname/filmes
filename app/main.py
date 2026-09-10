@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.db import conectar, criar_schema, inserir_filme, listar_filmes
+from app.pessoas import resolver as resolver_pessoa
 from app.metadata import buscar_metadados, buscar_provedores, extract_imdb_id
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -52,77 +53,6 @@ class FilmeResponse(BaseModel):
     aviso: str | None = None
 
 
-def _resolver_pessoa(conexao, nome: str) -> int:
-    """Devolve o id da pessoa com esse nome, criando o registro se for a primeira vez.
-
-    A comparação ignora maiúsculas e espaços nas pontas, para "Leo" e "leo "
-    não virarem duas pessoas. O tratamento de acentos e o contrato definitivo
-    de identificação são das issues #25 e #31, ainda não implementadas.
-    """
-    linha = conexao.execute(
-        "SELECT id FROM pessoas WHERE lower(trim(nome)) = lower(trim(?))",
-        (nome,),
-    ).fetchone()
-    if linha is not None:
-        return linha["id"]
-
-    cursor = conexao.execute(
-        "INSERT INTO pessoas (nome, data_entrada) VALUES (?, ?)",
-        (nome.strip(), date.today().isoformat()),
-    )
-    conexao.commit()
-    return cursor.lastrowid
-
-
-def _dados_do_link(url: str) -> tuple[dict, str | None]:
-    """Descobre o que der sobre o filme a partir do link.
-
-    Nunca levanta erro: se o link não for identificável, se a OMDb não achar o
-    filme ou se a rede falhar, devolve o que conseguiu e um aviso para a
-    pessoa. A sugestão é salva de qualquer jeito — ninguém perde a indicação.
-    """
-    imdb_id = extract_imdb_id(url)
-    if not imdb_id:
-        return {}, (
-            "Não deu para identificar o filme por esse link. "
-            "Ele foi salvo assim mesmo, e os dados podem ser preenchidos depois."
-        )
-
-    dados: dict = {"imdb_id": imdb_id}
-
-    try:
-        metadados = buscar_metadados(imdb_id)
-    except Exception:
-        metadados = None
-
-    if not metadados:
-        return dados, (
-            "O filme foi salvo, mas não achamos os dados dele agora. "
-            "Dá para tentar de novo mais tarde."
-        )
-
-    dados.update(
-        {
-            "titulo": metadados.get("titulo"),
-            "ano": metadados.get("ano"),
-            "duracao_min": metadados.get("duracao_min"),
-            "generos": metadados.get("generos"),
-            "classificacao": metadados.get("classificacao"),
-            "nota_imdb": metadados.get("nota_imdb"),
-            "sinopse": metadados.get("sinopse"),
-        }
-    )
-
-    try:
-        provedores = buscar_provedores(imdb_id)
-        if provedores:
-            dados["provedores"] = json.dumps(provedores, ensure_ascii=False)
-    except Exception:
-        pass
-
-    return dados, None
-
-
 @app.post("/api/filmes", response_model=FilmeResponse, status_code=201)
 def salvar_filme(
     payload: NovoFilmeRequest,
@@ -147,7 +77,7 @@ def salvar_filme(
 
     conexao = conectar()
     try:
-        pessoa_id = _resolver_pessoa(conexao, nome)
+        pessoa_id = resolver_pessoa(conexao, nome)
         dados, aviso = _dados_do_link(url)
 
         # Duplicado se checa pelo imdb_id, nunca pela url: a mesma pessoa pode
