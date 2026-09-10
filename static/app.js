@@ -736,6 +736,17 @@ function preencherPessoas(filmes) {
   if (atual && valores.includes(atual)) select.value = atual;
 }
 
+registrarFiltro(function filtroNotaMinima(filme) {
+  const minima = parseFloat(valorDoSelect("filtro-nota"));
+  if (!minima) return true;
+  if (filme.nota_imdb == null) {
+    // Filme sem nota conhecida nao some calado: passa e a tela avisa.
+    semDadoNoUltimoFiltro += 1;
+    return true;
+  }
+  return filme.nota_imdb >= minima;
+});
+
 function filtrarLista(filmes) {
   semDadoNoUltimoFiltro = 0;
   return filmes.filter((filme) => FILTROS.every((fn) => fn(filme)));
@@ -845,7 +856,7 @@ document.addEventListener("DOMContentLoaded", () => {
     el.addEventListener("change", carregarFilmes);
   });
   iniciarSessao();
-  ["ordenacao", "filtro-duracao", "filtro-tema", "filtro-classificacao", "filtro-servico", "filtro-pessoa"].forEach((id) => {
+  ["ordenacao", "filtro-duracao", "filtro-tema", "filtro-classificacao", "filtro-servico", "filtro-pessoa", "filtro-nota"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener("change", carregarFilmes);
