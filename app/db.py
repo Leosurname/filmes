@@ -124,7 +124,15 @@ def inserir_filme(conexao: sqlite3.Connection, filme: dict[str, Any]) -> int:
 
 def listar_filmes(conexao: sqlite3.Connection) -> list[sqlite3.Row]:
     """Lista todos os filmes cadastrados, do mais recente para o mais antigo."""
-    cursor = conexao.execute("SELECT * FROM filmes ORDER BY id DESC;")
+    # LEFT JOIN para o filme antigo, sem pessoa vinculada, continuar aparecendo.
+    cursor = conexao.execute(
+        """
+        SELECT f.*, p.nome AS sugerido_por
+        FROM filmes f
+        LEFT JOIN pessoas p ON p.id = f.pessoa_id
+        ORDER BY f.id DESC;
+        """
+    )
     return cursor.fetchall()
 
 
