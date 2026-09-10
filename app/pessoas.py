@@ -58,3 +58,36 @@ def buscar_por_id(conexao, pessoa_id: int):
     return conexao.execute(
         "SELECT id, nome, data_entrada FROM pessoas WHERE id = ?", (pessoa_id,)
     ).fetchone()
+
+
+class NomeJaUsado(Exception):
+    """O nome novo já pertence a outra pessoa da casa."""
+
+
+def renomear(conexao, pessoa_id: int, nome_novo: str) -> None:
+    """Corrige o nome de quem já existe, sem criar pessoa nova.
+
+    Os filmes continuam vinculados pelo id, então nada se perde: só muda o nome
+    que aparece neles.
+
+    Levanta `NomeJaUsado` quando o nome novo já é de outra pessoa. Juntar duas
+    pessoas numa só é uma decisão com consequências (misturar os históricos de
+    quem indicou o quê), e não deve acontecer por causa de uma correção de
+    digitação.
+    """
+    limpo = " ".join((nome_novo or "").split())
+    if not limpo:
+        raise ValueError("Nome vazio.")
+
+    chave = normalizar(limpo)
+    dono = conexao.execute(
+        "SELECT id FROM pessoas WHERE nome_normalizado = ?", (chave,)
+    ).fetchone()
+    if dono is not None and dono["id"] != pessoa_id:
+        raise NomeJaUsado(limpo)
+
+    conexao.execute(
+        "UPDATE pessoas SET nome = ?, nome_normalizado = ? WHERE id = ?",
+        (limpo, chave, pessoa_id),
+    )
+    conexao.commit()

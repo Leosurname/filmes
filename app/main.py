@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.db import conectar, criar_schema, inserir_filme, listar_filmes
-from app.pessoas import buscar_por_id, resolver as resolver_pessoa
+from app.pessoas import NomeJaUsado, buscar_por_id, renomear, resolver as resolver_pessoa
 from app.metadata import buscar_metadados, buscar_provedores, extract_imdb_id
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -133,6 +133,37 @@ def pessoa_do_pedido(x_pessoa_id: str | None = Header(default=None)) -> int:
         )
 
     return pessoa["id"]
+
+
+@app.patch("/api/pessoa", response_model=PessoaResponse)
+def corrigir_nome(
+    payload: EntrarRequest,
+    pessoa_id: int = Depends(pessoa_do_pedido),
+) -> PessoaResponse:
+    """Corrige o nome de quem está usando o aparelho.
+
+    Quem digitou errado na primeira visita ficaria preso àquele nome, porque o
+    sistema não pergunta de novo. Isto renomeia a pessoa que já existe: os
+    filmes que ela sugeriu continuam com ela, agora com o nome certo.
+    """
+    nome = " ".join((payload.nome or "").split())
+    if not nome:
+        raise HTTPException(status_code=400, detail="Digite o nome corrigido.")
+
+    conexao = conectar()
+    try:
+        try:
+            renomear(conexao, pessoa_id, nome)
+        except NomeJaUsado:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Já existe alguém na casa como {nome}.",
+            )
+        pessoa = buscar_por_id(conexao, pessoa_id)
+    finally:
+        conexao.close()
+
+    return PessoaResponse(id=pessoa["id"], nome=pessoa["nome"])
 
 
 def _dados_do_link(url: str) -> tuple[dict, str | None]:
