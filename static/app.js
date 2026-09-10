@@ -337,6 +337,23 @@ function preencherTemas(filmes) {
   }
 }
 
+// Ordem das classificacoes, da mais leve para a mais pesada. Comparar como
+// texto daria errado: "10" viria depois de "12".
+const ORDEM_CLASSIFICACAO = ["L", "10", "12", "14", "16", "18"];
+
+registrarFiltro(function filtroClassificacao(filme) {
+  const teto = valorDoSelect("filtro-classificacao");
+  if (!teto) return true;
+  const valor = filme.classificacao;
+  const indice = ORDEM_CLASSIFICACAO.indexOf(valor);
+  if (!valor || indice === -1) {
+    semDadoNoUltimoFiltro += 1;
+    return true;
+  }
+  // "ate 12 anos" traz tudo que e igual ou mais leve.
+  return indice <= ORDEM_CLASSIFICACAO.indexOf(teto);
+});
+
 function filtrarLista(filmes) {
   semDadoNoUltimoFiltro = 0;
   return filmes.filter((filme) => FILTROS.every((fn) => fn(filme)));
@@ -436,7 +453,7 @@ async function carregarFilmes() {
 document.addEventListener("filmes:atualizar", carregarFilmes);
 
 document.addEventListener("DOMContentLoaded", () => {
-  ["ordenacao", "filtro-duracao", "filtro-tema"].forEach((id) => {
+  ["ordenacao", "filtro-duracao", "filtro-tema", "filtro-classificacao"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener("change", carregarFilmes);

@@ -22,6 +22,8 @@ from typing import Optional, TypedDict
 import requests
 from dotenv import load_dotenv
 
+from app.classificacao import omdb_para_br
+
 load_dotenv()
 
 OMDB_URL = "https://www.omdbapi.com/"
@@ -139,7 +141,7 @@ def buscar_metadados(imdb_id: str, *, timeout: float = 5.0) -> Optional[Metadado
         ano=_parse_ano(dados.get("Year")),
         duracao_min=_parse_duracao_min(dados.get("Runtime")),
         generos=_parse_generos(dados.get("Genre")),
-        classificacao=_parse_texto(dados.get("Rated")),
+        classificacao=omdb_para_br(dados.get("Rated")) or "",
         nota_imdb=_parse_nota(dados.get("imdbRating")),
         sinopse=_parse_texto(dados.get("Plot")),
     )
