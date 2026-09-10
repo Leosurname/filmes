@@ -259,6 +259,12 @@ function criarCard(filme) {
     textoOuVazio(filme.ano),
     formatarDuracao(filme.duracao_min),
     textoOuVazio(filme.classificacao),
+    textoNotas(filme),
+    textoServicos(filme),
+    // Na visão de assistidos, a data de quando foi assistido entra no card.
+    filme.status === "assistido" && filme.data_assistido
+      ? `Assistido em ${filme.data_assistido}`
+      : "",
   ].filter((parte) => parte !== "");
 
   if (metaPartes.length > 0) {
@@ -332,6 +338,17 @@ function ordenarPorNotaFamilia(lista) {
     return nb - na;
   });
 }
+
+// Duas visoes: "quero ver" (padrao) e "ja assistimos". Os filtros valem nas
+// duas, porque a visao entra como mais um filtro na mesma camada.
+function visaoAtual() {
+  const marcado = document.querySelector('input[name="visao"]:checked');
+  return marcado ? marcado.value : "quero_ver";
+}
+
+registrarFiltro(function filtroVisao(filme) {
+  return (filme.status || "quero_ver") === visaoAtual();
+});
 
 registrarFiltro(function filtroDuracao(filme) {
   const faixa = valorDoSelect("filtro-duracao");
@@ -545,7 +562,11 @@ async function carregarFilmes() {
     avisarSobreDadosAusentes();
 
     if (visiveis.length === 0) {
-      mostrarMensagemLista("Nenhum filme com esses filtros.");
+      mostrarMensagemLista(
+        visaoAtual() === "assistido"
+          ? "Nenhum filme assistido ainda."
+          : "Nenhum filme com esses filtros."
+      );
       return;
     }
 
@@ -562,6 +583,9 @@ async function carregarFilmes() {
 document.addEventListener("filmes:atualizar", carregarFilmes);
 
 document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll('input[name="visao"]').forEach((el) => {
+    el.addEventListener("change", carregarFilmes);
+  });
   ["ordenacao", "filtro-duracao", "filtro-tema", "filtro-classificacao", "filtro-servico"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
