@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Modelo de LaunchAgent para o macOS ligar o servidor sozinho quando o
+  computador liga (autostart no login do usuário).
+
+  Isso é OPCIONAL e não fica ativado por padrão — veja a decisão e o passo a
+  passo de instalação na seção "Rodando na rede de casa" do README.md.
+
+  Antes de usar, troque SEU_USUARIO pelo caminho real do projeto.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.filmes.servidor</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/SEU_USUARIO/Projetos/filmes/scripts/iniciar-servidor.sh</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/filmes-servidor.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/filmes-servidor.err.log</string>
+</dict>
+</plist>

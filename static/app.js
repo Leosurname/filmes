@@ -1,138 +1,527 @@
-// Issue #16 — Mostrar onde assistir no card e filtrar por serviço
-//
-// O back-end que busca "onde assistir" na TMDB (issue #15) e o endpoint de
-// listagem de filmes (issue #4) ainda não existem. Para não invadir o escopo
-// dessas issues, este arquivo usa uma lista de exemplo (FILMES_EXEMPLO) com o
-// mesmo formato do campo `provedores` descrito no plan.md. Quando o endpoint
-// real existir, basta trocar `carregarFilmes()` para buscar em `/api/filmes`
-// — o resto (renderizar cards e filtrar) já funciona com o mesmo formato.
-
-const SERVICOS = ["Netflix", "Apple TV", "Prime Video", "Disney+", "HBO Max"];
-const NAO_DISPONIVEL = "Não disponível";
-
-// Dados de exemplo só para demonstrar a funcionalidade desta issue.
-const FILMES_EXEMPLO = [
-  { id: 1, titulo: "Um Sonho de Liberdade", provedores: ["Netflix", "Prime Video"] },
-  { id: 2, titulo: "O Poderoso Chefão", provedores: ["Prime Video"] },
-  { id: 3, titulo: "Divertida Mente", provedores: ["Disney+"] },
-  { id: 4, titulo: "Duna", provedores: ["HBO Max", "Apple TV"] },
-  { id: 5, titulo: "Cidade de Deus", provedores: [] },
-  { id: 6, titulo: "Interestelar", provedores: ["Prime Video", "Apple TV", "Netflix"] },
-  { id: 7, titulo: "Vingadores: Ultimato", provedores: ["Disney+"] },
-  { id: 8, titulo: "Filme sem informação de streaming" },
-];
-
-let filtrosAtivos = new Set();
-
-function carregarFilmes() {
-  // Placeholder até a API de listagem (issue #4) existir.
-  return FILMES_EXEMPLO;
-}
-
-function servicosDoFilme(filme) {
-  return Array.isArray(filme.provedores) ? filme.provedores : [];
-}
-
-function renderizarFiltros() {
-  const container = document.getElementById("lista-filtros");
-  container.innerHTML = "";
-
-  SERVICOS.forEach((servico) => {
-    const id = `filtro-${servico.replace(/\s+/g, "-").toLowerCase()}`;
-    const label = document.createElement("label");
-    label.className = "filtro-item";
-    label.setAttribute("for", id);
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.id = id;
-    checkbox.value = servico;
-    checkbox.checked = filtrosAtivos.has(servico);
-    checkbox.addEventListener("change", () => {
-      if (checkbox.checked) {
-        filtrosAtivos.add(servico);
-      } else {
-        filtrosAtivos.delete(servico);
+// Quem esta usando o aparelho. A API precisa saber de quem e a sugestao.
+// Isto e provisorio: a tela de login e o armazenamento definitivo sao as
+// issues #26 e #30, e o contrato final da identificacao e a #31.
+function nomeDaPessoa() {
+  var nome = "";
+  try {
+    nome = window.localStorage.getItem("filmes:pessoa") || "";
+  } catch (e) {
+    nome = "";
+  }
+  if (!nome) {
+    nome = (window.prompt("Qual e o seu nome?") || "").trim();
+    if (nome) {
+      try {
+        window.localStorage.setItem("filmes:pessoa", nome);
+      } catch (e) {
+        // Armazenamento bloqueado: segue so nesta visita.
       }
-      renderizarFilmes();
-    });
+    }
+  }
+  return nome;
+}
 
-    label.appendChild(checkbox);
-    label.appendChild(document.createTextNode(servico));
-    container.appendChild(label);
+(function () {
+  "use strict";
+
+  var form = document.getElementById("form-filme");
+  var input = document.getElementById("link-filme");
+  var botao = document.getElementById("botao-enviar");
+  var mensagem = document.getElementById("mensagem");
+
+  function mostrarMensagem(texto, tipo) {
+    mensagem.textContent = texto;
+    mensagem.className = "mensagem " + tipo;
+    mensagem.hidden = false;
+  }
+
+  function limparMensagem() {
+    mensagem.hidden = true;
+    mensagem.textContent = "";
+    mensagem.className = "mensagem";
+  }
+
+  function definirCarregando(carregando) {
+    botao.disabled = carregando;
+    botao.querySelector(".botao-texto").textContent = carregando
+      ? "Enviando..."
+      : "Adicionar filme";
+  }
+
+  form.addEventListener("submit", function (evento) {
+    evento.preventDefault();
+
+    var link = input.value.trim();
+    if (!link) {
+      mostrarMensagem("Cole o link do filme antes de enviar.", "erro");
+      return;
+    }
+
+    limparMensagem();
+    definirCarregando(true);
+
+    fetch("/api/filmes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Pessoa-Nome": nomeDaPessoa()
+      },
+      body: JSON.stringify({ url: link })
+    })
+      .then(function (resposta) {
+        if (!resposta.ok) {
+          return resposta
+            .json()
+            .catch(function () {
+              return {};
+            })
+            .then(function (dados) {
+              throw new Error(
+                (dados && dados.detail) ||
+                  "Nao foi possivel adicionar o filme. Tente de novo."
+              );
+            });
+        }
+        return resposta.json().catch(function () {
+          return {};
+        });
+      })
+      .then(function () {
+        input.value = "";
+        mostrarMensagem("Filme adicionado a lista!", "sucesso");
+        document.dispatchEvent(new CustomEvent("filmes:atualizar"));
+      })
+      .catch(function (erro) {
+        mostrarMensagem(
+          erro && erro.message
+            ? erro.message
+            : "Nao foi possivel adicionar o filme. Tente de novo.",
+          "erro"
+        );
+      })
+      .finally(function () {
+        definirCarregando(false);
+        input.focus();
+      });
   });
+})();
+
+// --- Lista de filmes em cards ---------------------------------------------
+
+// Busca a lista de filmes na API e desenha os cards na tela.
+// Issue #6 — Mostrar a lista de filmes em cards.
+
+const GRID = document.getElementById("filmes-grid");
+const MENSAGEM = document.getElementById("filmes-mensagem");
+
+function mostrarMensagemLista(texto) {
+  if (!MENSAGEM) return;
+  if (!texto) {
+    MENSAGEM.hidden = true;
+    MENSAGEM.textContent = "";
+    return;
+  }
+  MENSAGEM.hidden = false;
+  MENSAGEM.textContent = texto;
 }
 
-function filmeCombinaComFiltro(filme) {
-  if (filtrosAtivos.size === 0) return true;
-  const servicos = servicosDoFilme(filme);
-  return servicos.some((servico) => filtrosAtivos.has(servico));
+// Devolve o valor se ele existir e não for uma string vazia; senão null.
+// Evita que campos ausentes apareçam como "undefined" ou "null" no card.
+function valorOuNulo(valor) {
+  if (valor === undefined || valor === null) return null;
+  if (typeof valor === "string" && valor.trim() === "") return null;
+  return valor;
 }
 
-function criarBadgeServico(servico) {
+function textoOuVazio(valor, sufixo = "") {
+  const v = valorOuNulo(valor);
+  return v === null ? "" : `${v}${sufixo}`;
+}
+
+function formatarDuracao(minutos) {
+  const v = valorOuNulo(minutos);
+  if (v === null) return "";
+  const min = Number(v);
+  if (Number.isNaN(min) || min <= 0) return "";
+  const horas = Math.floor(min / 60);
+  const resto = min % 60;
+  if (horas === 0) return `${resto} min`;
+  if (resto === 0) return `${horas}h`;
+  return `${horas}h${String(resto).padStart(2, "0")}`;
+}
+
+function formatarGeneros(generos) {
+  const v = valorOuNulo(generos);
+  if (v === null) return "";
+  if (Array.isArray(v)) return v.filter(Boolean).join(", ");
+  return String(v);
+}
+
+// O nome de quem sugeriu pode vir em formatos diferentes dependendo de como
+// o back-end monta a resposta (campo direto ou objeto pessoa aninhado).
+function nomeSugeriu(filme) {
+  const candidatos = [
+    filme.pessoa_nome,
+    filme.sugerido_por,
+    filme.pessoa && filme.pessoa.nome,
+  ];
+  for (const c of candidatos) {
+    const v = valorOuNulo(c);
+    if (v !== null) return String(v);
+  }
+  return "";
+}
+
+function criarSpan(texto, className) {
   const span = document.createElement("span");
-  span.className = "badge-servico";
-  span.textContent = servico;
+  if (className) span.className = className;
+  span.textContent = texto;
   return span;
 }
 
-function criarBadgeIndisponivel() {
-  const span = document.createElement("span");
-  span.className = "badge-servico badge-indisponivel";
-  span.textContent = NAO_DISPONIVEL;
-  return span;
+function textoServicos(filme) {
+  const nomes = provedoresDoFilme(filme);
+  return nomes.length ? nomes.join(", ") : "Não disponível nos serviços conhecidos";
 }
 
 function criarCard(filme) {
   const card = document.createElement("article");
-  card.className = "card-filme";
+  card.className = "filme-card";
 
-  const titulo = document.createElement("h3");
-  titulo.textContent = filme.titulo;
-  card.appendChild(titulo);
-
-  const servicosContainer = document.createElement("div");
-  servicosContainer.className = "servicos";
-
-  const servicos = servicosDoFilme(filme);
-  if (servicos.length === 0) {
-    servicosContainer.appendChild(criarBadgeIndisponivel());
-  } else {
-    servicos.forEach((servico) => {
-      servicosContainer.appendChild(criarBadgeServico(servico));
+  const posterUrl = valorOuNulo(filme.poster_url);
+  if (posterUrl) {
+    const img = document.createElement("img");
+    img.className = "filme-card__poster";
+    img.src = posterUrl;
+    img.alt = valorOuNulo(filme.titulo) ? `Pôster de ${filme.titulo}` : "Pôster do filme";
+    img.loading = "lazy";
+    // Se a imagem falhar ao carregar, troca por um espaço reservado em vez
+    // de quebrar o layout do card.
+    img.addEventListener("error", () => {
+      const placeholder = document.createElement("div");
+      placeholder.className = "filme-card__poster filme-card__poster--vazio";
+      placeholder.textContent = "Sem pôster";
+      img.replaceWith(placeholder);
     });
+    card.appendChild(img);
+  } else {
+    const placeholder = document.createElement("div");
+    placeholder.className = "filme-card__poster filme-card__poster--vazio";
+    placeholder.textContent = "Sem pôster";
+    card.appendChild(placeholder);
   }
 
-  card.appendChild(servicosContainer);
+  const corpo = document.createElement("div");
+  corpo.className = "filme-card__corpo";
+
+  const titulo = document.createElement("h3");
+  titulo.className = "filme-card__titulo";
+  titulo.textContent = valorOuNulo(filme.titulo) || "Título não informado";
+  corpo.appendChild(titulo);
+
+  const metaPartes = [
+    textoOuVazio(filme.ano),
+    formatarDuracao(filme.duracao_min),
+    textoOuVazio(filme.classificacao),
+  ].filter((parte) => parte !== "");
+
+  if (metaPartes.length > 0) {
+    const meta = document.createElement("div");
+    meta.className = "filme-card__meta";
+    metaPartes.forEach((parte) => meta.appendChild(criarSpan(parte)));
+    corpo.appendChild(meta);
+  }
+
+  const generosTexto = formatarGeneros(filme.generos);
+  if (generosTexto) {
+    const generos = document.createElement("div");
+    generos.className = "filme-card__generos";
+    generos.textContent = generosTexto;
+    corpo.appendChild(generos);
+  }
+
+  const rodape = document.createElement("div");
+  rodape.className = "filme-card__rodape";
+
+  const nota = valorOuNulo(filme.nota_imdb);
+  if (nota !== null) {
+    rodape.appendChild(criarSpan(`IMDb ${nota}`, "filme-card__nota"));
+  } else {
+    rodape.appendChild(criarSpan("", "filme-card__nota"));
+  }
+
+  const sugeriu = nomeSugeriu(filme);
+  rodape.appendChild(criarSpan(sugeriu ? `sugerido por ${sugeriu}` : ""));
+
+  corpo.appendChild(rodape);
+  card.appendChild(corpo);
+
   return card;
 }
 
-function renderizarFilmes() {
-  const container = document.getElementById("lista-filmes");
-  container.innerHTML = "";
+// --- Filtros ---------------------------------------------------------------
+//
+// Cada filtro e uma funcao que recebe o filme e devolve true/false. Todos os
+// filtros ativos sao aplicados juntos, entao eles se combinam. Filme com o
+// dado ausente (duracao, nota, genero...) nunca some calado: ele passa pelo
+// filtro e a tela avisa quantos estao nessa situacao.
 
-  const filmes = carregarFilmes().filter(filmeCombinaComFiltro);
+const FILTROS = [];
+let semDadoNoUltimoFiltro = 0;
 
-  if (filmes.length === 0) {
-    const vazio = document.createElement("p");
-    vazio.className = "sem-resultado";
-    vazio.textContent = "Nenhum filme disponível nos serviços selecionados.";
-    container.appendChild(vazio);
-    return;
+function registrarFiltro(fn) {
+  FILTROS.push(fn);
+}
+
+function valorDoSelect(id) {
+  const el = document.getElementById(id);
+  return el ? el.value : "";
+}
+
+function dentroDaFaixa(duracao, faixa) {
+  if (faixa === "curto") return duracao <= 90;
+  if (faixa === "medio") return duracao > 90 && duracao <= 120;
+  if (faixa === "longo") return duracao > 120;
+  return true;
+}
+
+registrarFiltro(function filtroDuracao(filme) {
+  const faixa = valorDoSelect("filtro-duracao");
+  if (!faixa) return true;
+  if (filme.duracao_min == null) {
+    semDadoNoUltimoFiltro += 1;
+    return true;
   }
+  return dentroDaFaixa(filme.duracao_min, faixa);
+});
 
-  filmes.forEach((filme) => {
-    container.appendChild(criarCard(filme));
+function generosDoFilme(filme) {
+  if (!filme.generos) return [];
+  return String(filme.generos)
+    .split(",")
+    .map((g) => g.trim())
+    .filter(Boolean);
+}
+
+registrarFiltro(function filtroTema(filme) {
+  const tema = valorDoSelect("filtro-tema");
+  if (!tema) return true;
+  const generos = generosDoFilme(filme);
+  if (generos.length === 0) {
+    semDadoNoUltimoFiltro += 1;
+    return true;
+  }
+  // Filme com varios generos aparece em todos eles.
+  return generos.some((g) => g.toLowerCase() === tema.toLowerCase());
+});
+
+// A lista de temas vem dos filmes que existem no banco: nao adianta oferecer
+// um genero que ninguem sugeriu.
+function preencherTemas(filmes) {
+  const select = document.getElementById("filtro-tema");
+  if (!select) return;
+  const atual = select.value;
+  const temas = new Set();
+  filmes.forEach((filme) => generosDoFilme(filme).forEach((g) => temas.add(g)));
+
+  select.innerHTML = "";
+  const vazio = document.createElement("option");
+  vazio.value = "";
+  vazio.textContent = "Qualquer tema";
+  select.appendChild(vazio);
+
+  [...temas].sort((a, b) => a.localeCompare(b, "pt-BR")).forEach((tema) => {
+    const opcao = document.createElement("option");
+    opcao.value = tema;
+    opcao.textContent = tema;
+    select.appendChild(opcao);
   });
+
+  if (atual && temas.has(atual)) {
+    select.value = atual;
+  }
 }
 
-function limparFiltros() {
-  filtrosAtivos.clear();
-  renderizarFiltros();
-  renderizarFilmes();
+// Ordem das classificacoes, da mais leve para a mais pesada. Comparar como
+// texto daria errado: "10" viria depois de "12".
+const ORDEM_CLASSIFICACAO = ["L", "10", "12", "14", "16", "18"];
+
+registrarFiltro(function filtroClassificacao(filme) {
+  const teto = valorDoSelect("filtro-classificacao");
+  if (!teto) return true;
+  const valor = filme.classificacao;
+  const indice = ORDEM_CLASSIFICACAO.indexOf(valor);
+  if (!valor || indice === -1) {
+    semDadoNoUltimoFiltro += 1;
+    return true;
+  }
+  // "ate 12 anos" traz tudo que e igual ou mais leve.
+  return indice <= ORDEM_CLASSIFICACAO.indexOf(teto);
+});
+
+// O campo `provedores` chega como texto JSON com tres listas: assinatura,
+// aluguel e compra. Para filtrar e exibir, interessa o conjunto de nomes.
+function provedoresDoFilme(filme) {
+  const bruto = filme.provedores;
+  if (!bruto) return [];
+  let dados = bruto;
+  if (typeof bruto === "string") {
+    try {
+      dados = JSON.parse(bruto);
+    } catch (e) {
+      return [];
+    }
+  }
+  if (Array.isArray(dados)) return dados.filter(Boolean);
+  if (typeof dados !== "object") return [];
+
+  const nomes = new Set();
+  ["assinatura", "aluguel", "compra"].forEach((categoria) => {
+    (dados[categoria] || []).forEach((nome) => nome && nomes.add(nome));
+  });
+  return [...nomes];
 }
 
-document.getElementById("limpar-filtros").addEventListener("click", limparFiltros);
+registrarFiltro(function filtroServico(filme) {
+  const servico = valorDoSelect("filtro-servico");
+  if (!servico) return true;
+  const nomes = provedoresDoFilme(filme);
+  if (nomes.length === 0) {
+    semDadoNoUltimoFiltro += 1;
+    return true;
+  }
+  return nomes.some((n) => n.toLowerCase() === servico.toLowerCase());
+});
 
-renderizarFiltros();
-renderizarFilmes();
+function preencherServicos(filmes) {
+  const select = document.getElementById("filtro-servico");
+  if (!select) return;
+  const atual = select.value;
+  const servicos = new Set();
+  filmes.forEach((filme) => provedoresDoFilme(filme).forEach((n) => servicos.add(n)));
+
+  select.innerHTML = "";
+  const vazio = document.createElement("option");
+  vazio.value = "";
+  vazio.textContent = "Qualquer serviço";
+  select.appendChild(vazio);
+  [...servicos].sort((a, b) => a.localeCompare(b, "pt-BR")).forEach((nome) => {
+    const o = document.createElement("option");
+    o.value = nome;
+    o.textContent = nome;
+    select.appendChild(o);
+  });
+  if (atual && servicos.has(atual)) select.value = atual;
+}
+
+function filtrarLista(filmes) {
+  semDadoNoUltimoFiltro = 0;
+  return filmes.filter((filme) => FILTROS.every((fn) => fn(filme)));
+}
+
+function avisarSobreDadosAusentes() {
+  const aviso = document.getElementById("aviso-filtro");
+  if (!aviso) return;
+  if (semDadoNoUltimoFiltro > 0) {
+    aviso.textContent =
+      `Mostrando também ${semDadoNoUltimoFiltro} filme(s) sem essa informação, ` +
+      "que não foram escondidos pelo filtro.";
+    aviso.hidden = false;
+  } else {
+    aviso.hidden = true;
+  }
+}
+
+// --- Ordenacao da lista ----------------------------------------------------
+
+// Filme sem nota ou sem duracao vai sempre para o fim, nunca para o comeco.
+function ordenarLista(filmes, criterio) {
+  const lista = [...filmes];
+  const porCampoCrescente = (campo) => (a, b) => {
+    const va = a[campo];
+    const vb = b[campo];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return va - vb;
+  };
+
+  switch (criterio) {
+    case "nota":
+      lista.sort((a, b) => {
+        const na = a.nota_imdb;
+        const nb = b.nota_imdb;
+        if (na == null && nb == null) return 0;
+        if (na == null) return 1;
+        if (nb == null) return -1;
+        return nb - na;
+      });
+      break;
+    case "duracao":
+      lista.sort(porCampoCrescente("duracao_min"));
+      break;
+    case "recente":
+    default:
+      lista.sort((a, b) => new Date(b.data_sugestao) - new Date(a.data_sugestao));
+      break;
+  }
+  return lista;
+}
+
+function criterioAtual() {
+  const select = document.getElementById("ordenacao");
+  return select ? select.value : "recente";
+}
+
+async function carregarFilmes() {
+  mostrarMensagemLista("Carregando filmes...");
+  try {
+    const resposta = await fetch("/api/filmes");
+    if (!resposta.ok) {
+      throw new Error(`Falha ao buscar filmes (status ${resposta.status})`);
+    }
+    const filmes = await resposta.json();
+
+    GRID.innerHTML = "";
+
+    if (!Array.isArray(filmes) || filmes.length === 0) {
+      mostrarMensagemLista("Nenhum filme na lista ainda.");
+      return;
+    }
+
+    mostrarMensagemLista(null);
+    const fragmento = document.createDocumentFragment();
+    preencherTemas(filmes);
+    preencherServicos(filmes);
+    const visiveis = ordenarLista(filtrarLista(filmes), criterioAtual());
+    avisarSobreDadosAusentes();
+
+    if (visiveis.length === 0) {
+      mostrarMensagemLista("Nenhum filme com esses filtros.");
+      return;
+    }
+
+    visiveis.forEach((filme) => fragmento.appendChild(criarCard(filme)));
+    GRID.appendChild(fragmento);
+  } catch (erro) {
+    console.error("Erro ao carregar filmes:", erro);
+    mostrarMensagemLista("Não foi possível carregar os filmes agora.");
+  }
+}
+
+// Permite que outras partes da página (ex.: o formulário de adicionar filme)
+// disparem uma atualização da lista sem recarregar a página inteira.
+document.addEventListener("filmes:atualizar", carregarFilmes);
+
+document.addEventListener("DOMContentLoaded", () => {
+  ["ordenacao", "filtro-duracao", "filtro-tema", "filtro-classificacao", "filtro-servico"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("change", carregarFilmes);
+    }
+  });
+  carregarFilmes();
+});
+
+// Exposto para reuso/testes manuais.
+window.carregarFilmes = carregarFilmes;
