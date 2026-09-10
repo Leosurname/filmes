@@ -1,24 +1,42 @@
-// Quem esta usando o aparelho. A API precisa saber de quem e a sugestao.
-// Isto e provisorio: a tela de login e o armazenamento definitivo sao as
-// issues #26 e #30, e o contrato final da identificacao e a #31.
-function nomeDaPessoa() {
-  var nome = "";
+// Identificacao do aparelho: guardamos o id da pessoa depois de entrar uma
+// vez, e mandamos esse id em todo pedido que cria ou altera algo.
+const CHAVE_PESSOA = "filmes:pessoa";
+
+function pessoaGuardada() {
   try {
-    nome = window.localStorage.getItem("filmes:pessoa") || "";
+    const bruto = window.localStorage.getItem(CHAVE_PESSOA);
+    return bruto ? JSON.parse(bruto) : null;
   } catch (e) {
-    nome = "";
+    return null;
   }
-  if (!nome) {
-    nome = (window.prompt("Qual e o seu nome?") || "").trim();
-    if (nome) {
-      try {
-        window.localStorage.setItem("filmes:pessoa", nome);
-      } catch (e) {
-        // Armazenamento bloqueado: segue so nesta visita.
-      }
-    }
+}
+
+function guardarPessoa(pessoa) {
+  try {
+    window.localStorage.setItem(CHAVE_PESSOA, JSON.stringify(pessoa));
+  } catch (e) {
+    // Armazenamento bloqueado: segue valendo so nesta visita.
   }
-  return nome;
+}
+
+async function entrarComNome(nome) {
+  const resposta = await fetch("/api/entrar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nome })
+  });
+  if (!resposta.ok) {
+    throw new Error("Nao foi possivel entrar.");
+  }
+  const pessoa = await resposta.json();
+  guardarPessoa(pessoa);
+  return pessoa;
+}
+
+// Cabecalhos de identificacao para os pedidos que criam ou alteram algo.
+function cabecalhosDeIdentificacao() {
+  const pessoa = pessoaGuardada();
+  return pessoa ? { "X-Pessoa-Id": String(pessoa.id) } : {};
 }
 
 (function () {
@@ -64,7 +82,7 @@ function nomeDaPessoa() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Pessoa-Nome": nomeDaPessoa()
+        ...cabecalhosDeIdentificacao()
       },
       body: JSON.stringify({ url: link })
     })
