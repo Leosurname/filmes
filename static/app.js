@@ -1,4 +1,4 @@
-(// Quem esta usando o aparelho. A API precisa saber de quem e a sugestao.
+// Quem esta usando o aparelho. A API precisa saber de quem e a sugestao.
 // Isto e provisorio: a tela de login e o armazenamento definitivo sao as
 // issues #26 e #30, e o contrato final da identificacao e a #31.
 function nomeDaPessoa() {
@@ -21,7 +21,7 @@ function nomeDaPessoa() {
   return nome;
 }
 
-function () {
+(function () {
   "use strict";
 
   var form = document.getElementById("form-filme");
@@ -89,6 +89,7 @@ function () {
       .then(function () {
         input.value = "";
         mostrarMensagem("Filme adicionado a lista!", "sucesso");
+        document.dispatchEvent(new CustomEvent("filmes:atualizar"));
       })
       .catch(function (erro) {
         mostrarMensagem(
@@ -104,3 +105,186 @@ function () {
       });
   });
 })();
+
+// --- Lista de filmes em cards ---------------------------------------------
+
+// Busca a lista de filmes na API e desenha os cards na tela.
+// Issue #6 — Mostrar a lista de filmes em cards.
+
+const GRID = document.getElementById("filmes-grid");
+const MENSAGEM = document.getElementById("filmes-mensagem");
+
+function mostrarMensagemLista(texto) {
+  if (!MENSAGEM) return;
+  if (!texto) {
+    MENSAGEM.hidden = true;
+    MENSAGEM.textContent = "";
+    return;
+  }
+  MENSAGEM.hidden = false;
+  MENSAGEM.textContent = texto;
+}
+
+// Devolve o valor se ele existir e não for uma string vazia; senão null.
+// Evita que campos ausentes apareçam como "undefined" ou "null" no card.
+function valorOuNulo(valor) {
+  if (valor === undefined || valor === null) return null;
+  if (typeof valor === "string" && valor.trim() === "") return null;
+  return valor;
+}
+
+function textoOuVazio(valor, sufixo = "") {
+  const v = valorOuNulo(valor);
+  return v === null ? "" : `${v}${sufixo}`;
+}
+
+function formatarDuracao(minutos) {
+  const v = valorOuNulo(minutos);
+  if (v === null) return "";
+  const min = Number(v);
+  if (Number.isNaN(min) || min <= 0) return "";
+  const horas = Math.floor(min / 60);
+  const resto = min % 60;
+  if (horas === 0) return `${resto} min`;
+  if (resto === 0) return `${horas}h`;
+  return `${horas}h${String(resto).padStart(2, "0")}`;
+}
+
+function formatarGeneros(generos) {
+  const v = valorOuNulo(generos);
+  if (v === null) return "";
+  if (Array.isArray(v)) return v.filter(Boolean).join(", ");
+  return String(v);
+}
+
+// O nome de quem sugeriu pode vir em formatos diferentes dependendo de como
+// o back-end monta a resposta (campo direto ou objeto pessoa aninhado).
+function nomeSugeriu(filme) {
+  const candidatos = [
+    filme.pessoa_nome,
+    filme.sugerido_por,
+    filme.pessoa && filme.pessoa.nome,
+  ];
+  for (const c of candidatos) {
+    const v = valorOuNulo(c);
+    if (v !== null) return String(v);
+  }
+  return "";
+}
+
+function criarSpan(texto, className) {
+  const span = document.createElement("span");
+  if (className) span.className = className;
+  span.textContent = texto;
+  return span;
+}
+
+function criarCard(filme) {
+  const card = document.createElement("article");
+  card.className = "filme-card";
+
+  const posterUrl = valorOuNulo(filme.poster_url);
+  if (posterUrl) {
+    const img = document.createElement("img");
+    img.className = "filme-card__poster";
+    img.src = posterUrl;
+    img.alt = valorOuNulo(filme.titulo) ? `Pôster de ${filme.titulo}` : "Pôster do filme";
+    img.loading = "lazy";
+    // Se a imagem falhar ao carregar, troca por um espaço reservado em vez
+    // de quebrar o layout do card.
+    img.addEventListener("error", () => {
+      const placeholder = document.createElement("div");
+      placeholder.className = "filme-card__poster filme-card__poster--vazio";
+      placeholder.textContent = "Sem pôster";
+      img.replaceWith(placeholder);
+    });
+    card.appendChild(img);
+  } else {
+    const placeholder = document.createElement("div");
+    placeholder.className = "filme-card__poster filme-card__poster--vazio";
+    placeholder.textContent = "Sem pôster";
+    card.appendChild(placeholder);
+  }
+
+  const corpo = document.createElement("div");
+  corpo.className = "filme-card__corpo";
+
+  const titulo = document.createElement("h3");
+  titulo.className = "filme-card__titulo";
+  titulo.textContent = valorOuNulo(filme.titulo) || "Título não informado";
+  corpo.appendChild(titulo);
+
+  const metaPartes = [
+    textoOuVazio(filme.ano),
+    formatarDuracao(filme.duracao_min),
+    textoOuVazio(filme.classificacao),
+  ].filter((parte) => parte !== "");
+
+  if (metaPartes.length > 0) {
+    const meta = document.createElement("div");
+    meta.className = "filme-card__meta";
+    metaPartes.forEach((parte) => meta.appendChild(criarSpan(parte)));
+    corpo.appendChild(meta);
+  }
+
+  const generosTexto = formatarGeneros(filme.generos);
+  if (generosTexto) {
+    const generos = document.createElement("div");
+    generos.className = "filme-card__generos";
+    generos.textContent = generosTexto;
+    corpo.appendChild(generos);
+  }
+
+  const rodape = document.createElement("div");
+  rodape.className = "filme-card__rodape";
+
+  const nota = valorOuNulo(filme.nota_imdb);
+  if (nota !== null) {
+    rodape.appendChild(criarSpan(`IMDb ${nota}`, "filme-card__nota"));
+  } else {
+    rodape.appendChild(criarSpan("", "filme-card__nota"));
+  }
+
+  const sugeriu = nomeSugeriu(filme);
+  rodape.appendChild(criarSpan(sugeriu ? `sugerido por ${sugeriu}` : ""));
+
+  corpo.appendChild(rodape);
+  card.appendChild(corpo);
+
+  return card;
+}
+
+async function carregarFilmes() {
+  mostrarMensagemLista("Carregando filmes...");
+  try {
+    const resposta = await fetch("/api/filmes");
+    if (!resposta.ok) {
+      throw new Error(`Falha ao buscar filmes (status ${resposta.status})`);
+    }
+    const filmes = await resposta.json();
+
+    GRID.innerHTML = "";
+
+    if (!Array.isArray(filmes) || filmes.length === 0) {
+      mostrarMensagemLista("Nenhum filme na lista ainda.");
+      return;
+    }
+
+    mostrarMensagemLista(null);
+    const fragmento = document.createDocumentFragment();
+    filmes.forEach((filme) => fragmento.appendChild(criarCard(filme)));
+    GRID.appendChild(fragmento);
+  } catch (erro) {
+    console.error("Erro ao carregar filmes:", erro);
+    mostrarMensagemLista("Não foi possível carregar os filmes agora.");
+  }
+}
+
+// Permite que outras partes da página (ex.: o formulário de adicionar filme)
+// disparem uma atualização da lista sem recarregar a página inteira.
+document.addEventListener("filmes:atualizar", carregarFilmes);
+
+document.addEventListener("DOMContentLoaded", carregarFilmes);
+
+// Exposto para reuso/testes manuais.
+window.carregarFilmes = carregarFilmes;
