@@ -7,9 +7,34 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="pagina">
+  <section id="tela-entrada" class="tela-entrada" hidden>
+    <h1 class="titulo">Filmes da Família</h1>
+    <p class="subtitulo">Antes de começar, diga quem é você.</p>
+
+    <form id="form-entrada" class="form-entrada" novalidate>
+      <label for="nome-pessoa" class="rotulo">Seu nome</label>
+      <input
+        id="nome-pessoa"
+        name="nome"
+        type="text"
+        autocomplete="given-name"
+        placeholder="Como a família te chama"
+        required
+      >
+      <button id="botao-entrar" type="submit" class="botao-enviar">Entrar</button>
+    </form>
+
+    <p class="nota-entrada">Sem senha. É só para a lista saber quem indicou cada filme.</p>
+    <p id="erro-entrada" class="mensagem mensagem--erro" role="alert" hidden></p>
+  </section>
+
+  <main id="pagina" class="pagina" hidden>
     <h1 class="titulo">Filmes da Família</h1>
     <p class="subtitulo">Cole o link do filme para adicionar na lista.</p>
+
+    <p class="quem-sou">
+      Você é <strong id="nome-de-quem-usa"></strong>.
+    </p>
 
     <form id="form-filme" class="form-filme" novalidate>
       <label for="link-filme" class="rotulo">Link do filme</label>
