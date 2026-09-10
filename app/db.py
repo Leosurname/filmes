@@ -1,106 +1,130 @@
-"""Acesso ao banco SQLite.
+"""Conexao com o SQLite e schema das tabelas `pessoas` e `filmes`.
 
-Escopo desta issue (#11 - filtro por faixa de duracao): fornece o minimo
-necessario para guardar filmes e listar com filtro de duracao. Cadastro via
-link (issues #3, #7, #8, #9, #10) e os demais filtros (issues #12, #13, #14)
-ficam fora do escopo aqui.
+Cobre a Issue #2 (Fase 1 do plan.md): criar o banco, criar a tabela e
+oferecer funcoes basicas de inserir e listar filmes.
 """
+
+from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
+# Caminho do banco na raiz do projeto (ao lado da pasta app/).
 DB_PATH = Path(__file__).resolve().parent.parent / "filmes.db"
 
-# Faixas de duracao definidas no plan.md (Fase 3).
-FAIXAS_DURACAO = {
-    "ate_90": "duracao_min <= 90",
-    "90_120": "duracao_min > 90 AND duracao_min <= 120",
-    "mais_120": "duracao_min > 120",
-}
+CRIAR_TABELA_PESSOAS = """
+CREATE TABLE IF NOT EXISTS pessoas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    data_entrada TEXT NOT NULL
+);
+"""
 
-# Dados de exemplo apenas para permitir testar o filtro manualmente, ja que
-# o endpoint de cadastro (issue #3) ainda nao existe nesta branch.
-FILMES_SEED = [
-    ("Curta e Grossa", 82),
-    ("Sessao da Tarde", 90),
-    ("Equilibrio Perfeito", 105),
-    ("Noite de Sexta", 118),
-    ("Jornada Longa", 150),
-    ("Epico Sem Fim", 205),
-    ("Misterioso Sem Ficha", None),
-    ("Achado no Grupo da Familia", None),
+CRIAR_TABELA_FILMES = """
+CREATE TABLE IF NOT EXISTS filmes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    url_original TEXT,
+    imdb_id TEXT,
+    titulo TEXT,
+    ano INTEGER,
+    duracao_min INTEGER,
+    generos TEXT,
+    classificacao TEXT,
+    nota_imdb REAL,
+    sinopse TEXT,
+    poster_url TEXT,
+    provedores TEXT,
+    pessoa_id INTEGER,
+    data_sugestao TEXT,
+    status TEXT,
+    nota_familia REAL,
+    FOREIGN KEY (pessoa_id) REFERENCES pessoas (id)
+);
+"""
+
+# Colunas na mesma ordem usada por inserir_filme / listar_filmes.
+COLUNAS_FILMES = [
+    "url_original",
+    "imdb_id",
+    "titulo",
+    "ano",
+    "duracao_min",
+    "generos",
+    "classificacao",
+    "nota_imdb",
+    "sinopse",
+    "poster_url",
+    "provedores",
+    "pessoa_id",
+    "data_sugestao",
+    "status",
+    "nota_familia",
 ]
 
 
-def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+def conectar(db_path: Path | str = DB_PATH) -> sqlite3.Connection:
+    """Abre uma conexao com o banco, criando o arquivo se nao existir.
+
+    `row_factory` fica configurada como `sqlite3.Row` para que as linhas
+    possam ser lidas tanto por indice quanto por nome de coluna.
+    """
+    conexao = sqlite3.connect(db_path)
+    conexao.row_factory = sqlite3.Row
+    conexao.execute("PRAGMA foreign_keys = ON;")
+    return conexao
+
+
+def criar_schema(conexao: sqlite3.Connection | None = None) -> None:
+    """Cria as tabelas `pessoas` e `filmes` caso ainda nao existam.
+
+    A ordem importa: `filmes.pessoa_id` referencia `pessoas.id`.
+    """
+    conexao_propria = conexao is None
+    conn = conexao or conectar()
+    try:
+        conn.execute(CRIAR_TABELA_PESSOAS)
+        conn.execute(CRIAR_TABELA_FILMES)
+        conn.commit()
+    finally:
+        if conexao_propria:
+            conn.close()
+
+
+def inicializar_banco(db_path: Path | str = DB_PATH) -> sqlite3.Connection:
+    """Garante que o arquivo do banco e o schema existem e devolve a conexao."""
+    conn = conectar(db_path)
+    criar_schema(conn)
     return conn
 
 
-def init_db() -> None:
-    conn = get_connection()
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS filmes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            url_original TEXT,
-            imdb_id TEXT,
-            titulo TEXT NOT NULL,
-            ano INTEGER,
-            duracao_min INTEGER,
-            generos TEXT,
-            classificacao TEXT,
-            nota_imdb REAL,
-            sinopse TEXT,
-            poster_url TEXT,
-            provedores TEXT,
-            pessoa_id INTEGER,
-            data_sugestao TEXT DEFAULT (date('now')),
-            status TEXT DEFAULT 'quero_ver',
-            nota_familia REAL
-        )
-        """
-    )
-    conn.commit()
+def inserir_filme(conexao: sqlite3.Connection, filme: dict[str, Any]) -> int:
+    """Insere um filme na tabela e devolve o `id` gerado.
 
-    total = conn.execute("SELECT COUNT(*) FROM filmes").fetchone()[0]
-    if total == 0:
-        conn.executemany(
-            "INSERT INTO filmes (titulo, duracao_min) VALUES (?, ?)",
-            FILMES_SEED,
-        )
-        conn.commit()
-
-    conn.close()
-
-
-def listar_filmes(duracao: Optional[str] = None) -> list[dict]:
-    """Lista filmes, com filtro opcional de faixa de duracao.
-
-    Um filme com `duracao_min` desconhecido (NULL) nunca eh removido pelo
-    filtro de duracao: ele sempre aparece na lista, para nao sumir sem
-    aviso. O front-end sinaliza esses casos com um aviso proprio.
-
-    A condicao de duracao eh combinada por AND com quaisquer outros filtros
-    que venham a existir (genero, classificacao, pessoa, etc.), entao esta
-    funcao pode ganhar novos parametros opcionais sem quebrar o filtro de
-    duracao.
+    `filme` e um dicionario com qualquer subconjunto das colunas de
+    `COLUNAS_FILMES`; colunas ausentes ficam com NULL.
     """
-    if duracao is not None and duracao not in FAIXAS_DURACAO:
-        raise ValueError(f"faixa de duracao invalida: {duracao}")
+    colunas = [coluna for coluna in COLUNAS_FILMES if coluna in filme]
+    valores = [filme[coluna] for coluna in colunas]
+    placeholders = ", ".join("?" for _ in colunas)
+    colunas_sql = ", ".join(colunas)
 
-    condicoes = []
-    if duracao is not None:
-        condicoes.append(f"(duracao_min IS NULL OR ({FAIXAS_DURACAO[duracao]}))")
+    cursor = conexao.execute(
+        f"INSERT INTO filmes ({colunas_sql}) VALUES ({placeholders});",
+        valores,
+    )
+    conexao.commit()
+    return cursor.lastrowid
 
-    sql = "SELECT * FROM filmes"
-    if condicoes:
-        sql += " WHERE " + " AND ".join(condicoes)
-    sql += " ORDER BY (duracao_min IS NULL), duracao_min"
 
-    conn = get_connection()
-    linhas = conn.execute(sql).fetchall()
-    conn.close()
-    return [dict(linha) for linha in linhas]
+def listar_filmes(conexao: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Lista todos os filmes cadastrados, do mais recente para o mais antigo."""
+    cursor = conexao.execute("SELECT * FROM filmes ORDER BY id DESC;")
+    return cursor.fetchall()
+
+
+if __name__ == "__main__":
+    # Execucao manual: garante que o banco e a tabela existem.
+    conexao = inicializar_banco()
+    print(f"Banco pronto em: {DB_PATH}")
+    conexao.close()

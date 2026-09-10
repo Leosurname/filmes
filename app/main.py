@@ -1,49 +1,130 @@
-"""API e servidor estatico.
+"""Rotas da API e servidor da aplicação Filmes da Família."""
 
-Escopo desta issue (#11): endpoint de listagem com filtro de faixa de
-duracao. As demais rotas (salvar filme, login por nome, outros filtros)
-pertencem a outras issues e nao sao implementadas aqui.
-"""
-
+from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
-from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
-from app.db import FAIXAS_DURACAO, init_db, listar_filmes
+from app.db import conectar, criar_schema, inserir_filme, listar_filmes
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / "static"
 
-app = FastAPI(title="Filmes da Familia")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Garante que o banco e o schema existem antes de atender qualquer pedido."""
+    conexao = conectar()
+    try:
+        criar_schema(conexao)
+    finally:
+        conexao.close()
+    yield
 
 
-@app.on_event("startup")
-def _startup() -> None:
-    init_db()
+app = FastAPI(title="Filmes da Família", lifespan=lifespan)
+
+
+@app.get("/")
+def index() -> FileResponse:
+    """Serve a página inicial estática."""
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+class NovoFilmeRequest(BaseModel):
+    url: str = Field(default="")
+
+
+class FilmeResponse(BaseModel):
+    id: int
+    url_original: str
+    pessoa_id: int
+    data_sugestao: str
+    status: str
+
+
+def _resolver_pessoa(conexao, nome: str) -> int:
+    """Devolve o id da pessoa com esse nome, criando o registro se for a primeira vez.
+
+    A comparação ignora maiúsculas e espaços nas pontas, para "Leo" e "leo "
+    não virarem duas pessoas. O tratamento de acentos e o contrato definitivo
+    de identificação são das issues #25 e #31, ainda não implementadas.
+    """
+    linha = conexao.execute(
+        "SELECT id FROM pessoas WHERE lower(trim(nome)) = lower(trim(?))",
+        (nome,),
+    ).fetchone()
+    if linha is not None:
+        return linha["id"]
+
+    cursor = conexao.execute(
+        "INSERT INTO pessoas (nome, data_entrada) VALUES (?, ?)",
+        (nome.strip(), date.today().isoformat()),
+    )
+    conexao.commit()
+    return cursor.lastrowid
+
+
+@app.post("/api/filmes", response_model=FilmeResponse, status_code=201)
+def salvar_filme(
+    payload: NovoFilmeRequest,
+    x_pessoa_nome: str | None = Header(default=None),
+) -> FilmeResponse:
+    """Salva um filme a partir do link colado.
+
+    Quem sugeriu não vem digitado no corpo do pedido: vem de quem está usando
+    o sistema, pelo header `X-Pessoa-Nome`. Esse header é um contrato
+    provisório — a issue #31 define o definitivo.
+    """
+    url = (payload.url or "").strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="A url do filme é obrigatória.")
+
+    nome = (x_pessoa_nome or "").strip()
+    if not nome:
+        raise HTTPException(
+            status_code=400,
+            detail="Não foi possível identificar quem está enviando.",
+        )
+
+    conexao = conectar()
+    try:
+        pessoa_id = _resolver_pessoa(conexao, nome)
+        filme_id = inserir_filme(
+            conexao,
+            {
+                "url_original": url,
+                "pessoa_id": pessoa_id,
+                "data_sugestao": date.today().isoformat(),
+                "status": "quero_ver",
+            },
+        )
+        linha = conexao.execute(
+            "SELECT id, url_original, pessoa_id, data_sugestao, status FROM filmes WHERE id = ?",
+            (filme_id,),
+        ).fetchone()
+    finally:
+        conexao.close()
+
+    return FilmeResponse(**dict(linha))
 
 
 @app.get("/api/filmes")
-def get_filmes(
-    duracao: Optional[str] = Query(
-        None,
-        description="Faixa de duracao: ate_90, 90_120 ou mais_120",
-    )
-):
-    if duracao is not None and duracao not in FAIXAS_DURACAO:
-        raise HTTPException(
-            status_code=400,
-            detail=f"faixa de duracao invalida. Use uma de: {', '.join(FAIXAS_DURACAO)}",
-        )
+def get_filmes() -> list[dict]:
+    """Lista os filmes salvos, do mais recente para o mais antigo.
 
-    filmes = listar_filmes(duracao=duracao)
-    duracao_desconhecida = sum(1 for f in filmes if f["duracao_min"] is None)
-
-    return {
-        "filmes": filmes,
-        "filtro_duracao": duracao,
-        "filmes_duracao_desconhecida": duracao_desconhecida,
-    }
+    Devolve todos os campos de cada filme e uma lista vazia — nunca um erro —
+    quando ainda não há nada salvo.
+    """
+    conexao = conectar()
+    try:
+        return [dict(linha) for linha in listar_filmes(conexao)]
+    finally:
+        conexao.close()
 
 
-app.mount("/", StaticFiles(directory=BASE_DIR / "static", html=True), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

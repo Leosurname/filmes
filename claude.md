@@ -89,12 +89,15 @@ o Git. O repositório guarda só o `.env.example` com os nomes das variáveis, s
 
 ## 9. Como rodar e testar
 
+O passo a passo completo (instalar dependências, pegar as chaves da OMDb e da TMDB,
+subir o servidor e endereço da página) está no [`README.md`](README.md). Resumo:
+
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env   # preencher OMDB_API_KEY e TMDB_API_KEY
 uvicorn app.main:app --reload
 ```
 
-A página fica em `http://127.0.0.1:8000/`. A API de listagem (com o filtro de
-duração da issue #11) fica em `http://127.0.0.1:8000/api/filmes`.
+Página em `http://localhost:8000`.
