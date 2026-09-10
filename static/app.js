@@ -179,6 +179,11 @@ function criarSpan(texto, className) {
   return span;
 }
 
+function textoServicos(filme) {
+  const nomes = provedoresDoFilme(filme);
+  return nomes.length ? nomes.join(", ") : "Não disponível nos serviços conhecidos";
+}
+
 function criarCard(filme) {
   const card = document.createElement("article");
   card.className = "filme-card";
@@ -354,6 +359,61 @@ registrarFiltro(function filtroClassificacao(filme) {
   return indice <= ORDEM_CLASSIFICACAO.indexOf(teto);
 });
 
+// O campo `provedores` chega como texto JSON com tres listas: assinatura,
+// aluguel e compra. Para filtrar e exibir, interessa o conjunto de nomes.
+function provedoresDoFilme(filme) {
+  const bruto = filme.provedores;
+  if (!bruto) return [];
+  let dados = bruto;
+  if (typeof bruto === "string") {
+    try {
+      dados = JSON.parse(bruto);
+    } catch (e) {
+      return [];
+    }
+  }
+  if (Array.isArray(dados)) return dados.filter(Boolean);
+  if (typeof dados !== "object") return [];
+
+  const nomes = new Set();
+  ["assinatura", "aluguel", "compra"].forEach((categoria) => {
+    (dados[categoria] || []).forEach((nome) => nome && nomes.add(nome));
+  });
+  return [...nomes];
+}
+
+registrarFiltro(function filtroServico(filme) {
+  const servico = valorDoSelect("filtro-servico");
+  if (!servico) return true;
+  const nomes = provedoresDoFilme(filme);
+  if (nomes.length === 0) {
+    semDadoNoUltimoFiltro += 1;
+    return true;
+  }
+  return nomes.some((n) => n.toLowerCase() === servico.toLowerCase());
+});
+
+function preencherServicos(filmes) {
+  const select = document.getElementById("filtro-servico");
+  if (!select) return;
+  const atual = select.value;
+  const servicos = new Set();
+  filmes.forEach((filme) => provedoresDoFilme(filme).forEach((n) => servicos.add(n)));
+
+  select.innerHTML = "";
+  const vazio = document.createElement("option");
+  vazio.value = "";
+  vazio.textContent = "Qualquer serviço";
+  select.appendChild(vazio);
+  [...servicos].sort((a, b) => a.localeCompare(b, "pt-BR")).forEach((nome) => {
+    const o = document.createElement("option");
+    o.value = nome;
+    o.textContent = nome;
+    select.appendChild(o);
+  });
+  if (atual && servicos.has(atual)) select.value = atual;
+}
+
 function filtrarLista(filmes) {
   semDadoNoUltimoFiltro = 0;
   return filmes.filter((filme) => FILTROS.every((fn) => fn(filme)));
@@ -432,6 +492,7 @@ async function carregarFilmes() {
     mostrarMensagemLista(null);
     const fragmento = document.createDocumentFragment();
     preencherTemas(filmes);
+    preencherServicos(filmes);
     const visiveis = ordenarLista(filtrarLista(filmes), criterioAtual());
     avisarSobreDadosAusentes();
 
@@ -453,7 +514,7 @@ async function carregarFilmes() {
 document.addEventListener("filmes:atualizar", carregarFilmes);
 
 document.addEventListener("DOMContentLoaded", () => {
-  ["ordenacao", "filtro-duracao", "filtro-tema", "filtro-classificacao"].forEach((id) => {
+  ["ordenacao", "filtro-duracao", "filtro-tema", "filtro-classificacao", "filtro-servico"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener("change", carregarFilmes);
