@@ -468,6 +468,9 @@ function criarCard(filme) {
     formatarDuracao(filme.duracao_min),
     textoOuVazio(filme.classificacao),
     textoNotas(filme),
+    `Sugerido por ${nomeDeQuemSugeriu(filme)}${
+      filme.data_sugestao ? ` em ${filme.data_sugestao}` : ""
+    }`,
     textoServicos(filme),
     // Na visão de assistidos, a data de quando foi assistido entra no card.
     filme.status === "assistido" && filme.data_assistido
@@ -687,6 +690,52 @@ function preencherServicos(filmes) {
   if (atual && servicos.has(atual)) select.value = atual;
 }
 
+function nomeDeQuemSugeriu(filme) {
+  // Filme antigo, sem pessoa vinculada, nao pode quebrar a tela.
+  return filme.sugerido_por || "alguém da casa";
+}
+
+registrarFiltro(function filtroPessoa(filme) {
+  const escolha = valorDoSelect("filtro-pessoa");
+  if (!escolha) return true;
+  if (escolha === "__minhas__") {
+    const eu = pessoaGuardada();
+    return Boolean(eu) && filme.pessoa_id === eu.id;
+  }
+  return nomeDeQuemSugeriu(filme) === escolha;
+});
+
+function preencherPessoas(filmes) {
+  const select = document.getElementById("filtro-pessoa");
+  if (!select) return;
+  const atual = select.value;
+  const nomes = new Set();
+  filmes.forEach((filme) => {
+    if (filme.sugerido_por) nomes.add(filme.sugerido_por);
+  });
+
+  select.innerHTML = "";
+  const todos = document.createElement("option");
+  todos.value = "";
+  todos.textContent = "Qualquer pessoa";
+  select.appendChild(todos);
+
+  const minhas = document.createElement("option");
+  minhas.value = "__minhas__";
+  minhas.textContent = "Só as minhas";
+  select.appendChild(minhas);
+
+  [...nomes].sort((a, b) => a.localeCompare(b, "pt-BR")).forEach((nome) => {
+    const o = document.createElement("option");
+    o.value = nome;
+    o.textContent = nome;
+    select.appendChild(o);
+  });
+
+  const valores = ["", "__minhas__", ...nomes];
+  if (atual && valores.includes(atual)) select.value = atual;
+}
+
 function filtrarLista(filmes) {
   semDadoNoUltimoFiltro = 0;
   return filmes.filter((filme) => FILTROS.every((fn) => fn(filme)));
@@ -766,6 +815,7 @@ async function carregarFilmes() {
     const fragmento = document.createDocumentFragment();
     preencherTemas(filmes);
     preencherServicos(filmes);
+    preencherPessoas(filmes);
     const visiveis = ordenarLista(filtrarLista(filmes), criterioAtual());
     avisarSobreDadosAusentes();
 
@@ -795,7 +845,7 @@ document.addEventListener("DOMContentLoaded", () => {
     el.addEventListener("change", carregarFilmes);
   });
   iniciarSessao();
-  ["ordenacao", "filtro-duracao", "filtro-tema", "filtro-classificacao", "filtro-servico"].forEach((id) => {
+  ["ordenacao", "filtro-duracao", "filtro-tema", "filtro-classificacao", "filtro-servico", "filtro-pessoa"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener("change", carregarFilmes);
