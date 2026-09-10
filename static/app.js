@@ -172,8 +172,52 @@ function ligarFormularioDeEntrada() {
   });
 }
 
+// Quem digitou o nome errado na primeira visita ficaria preso a ele, porque a
+// tela de entrada nao volta a aparecer. Esta correcao renomeia a pessoa que ja
+// existe: os filmes dela continuam com ela, e a tela de entrada nao reaparece.
+async function corrigirNome() {
+  const pessoa = pessoaGuardada();
+  if (!pessoa) return;
+
+  const novo = (window.prompt("Como o seu nome deve aparecer?", pessoa.nome) || "").trim();
+  if (!novo || novo === pessoa.nome) return;
+
+  try {
+    const resposta = await fetch("/api/pessoa", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...cabecalhosDeIdentificacao()
+      },
+      body: JSON.stringify({ nome: novo })
+    });
+
+    if (resposta.status === 409) {
+      const dados = await resposta.json().catch(() => ({}));
+      window.alert(dados.detail || "Esse nome já é de outra pessoa da casa.");
+      return;
+    }
+    if (tratarIdentificacaoRecusada(resposta)) return;
+    if (!resposta.ok) throw new Error("falhou");
+
+    const atualizada = await resposta.json();
+    guardarPessoa(atualizada);
+    const rotulo = document.getElementById("nome-de-quem-usa");
+    if (rotulo) rotulo.textContent = atualizada.nome;
+    document.dispatchEvent(new CustomEvent("filmes:atualizar"));
+  } catch (e) {
+    window.alert("Não foi possível corrigir o nome agora.");
+  }
+}
+
+function ligarCorrecaoDeNome() {
+  const botao = document.getElementById("botao-corrigir-nome");
+  if (botao) botao.addEventListener("click", corrigirNome);
+}
+
 function iniciarSessao() {
   ligarFormularioDeEntrada();
+  ligarCorrecaoDeNome();
   const pessoa = pessoaGuardada();
   if (pessoa) {
     mostrarLista(pessoa);
