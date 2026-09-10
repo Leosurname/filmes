@@ -254,6 +254,60 @@ function criarCard(filme) {
   return card;
 }
 
+// --- Filtros ---------------------------------------------------------------
+//
+// Cada filtro e uma funcao que recebe o filme e devolve true/false. Todos os
+// filtros ativos sao aplicados juntos, entao eles se combinam. Filme com o
+// dado ausente (duracao, nota, genero...) nunca some calado: ele passa pelo
+// filtro e a tela avisa quantos estao nessa situacao.
+
+const FILTROS = [];
+let semDadoNoUltimoFiltro = 0;
+
+function registrarFiltro(fn) {
+  FILTROS.push(fn);
+}
+
+function valorDoSelect(id) {
+  const el = document.getElementById(id);
+  return el ? el.value : "";
+}
+
+function dentroDaFaixa(duracao, faixa) {
+  if (faixa === "curto") return duracao <= 90;
+  if (faixa === "medio") return duracao > 90 && duracao <= 120;
+  if (faixa === "longo") return duracao > 120;
+  return true;
+}
+
+registrarFiltro(function filtroDuracao(filme) {
+  const faixa = valorDoSelect("filtro-duracao");
+  if (!faixa) return true;
+  if (filme.duracao_min == null) {
+    semDadoNoUltimoFiltro += 1;
+    return true;
+  }
+  return dentroDaFaixa(filme.duracao_min, faixa);
+});
+
+function filtrarLista(filmes) {
+  semDadoNoUltimoFiltro = 0;
+  return filmes.filter((filme) => FILTROS.every((fn) => fn(filme)));
+}
+
+function avisarSobreDadosAusentes() {
+  const aviso = document.getElementById("aviso-filtro");
+  if (!aviso) return;
+  if (semDadoNoUltimoFiltro > 0) {
+    aviso.textContent =
+      `Mostrando também ${semDadoNoUltimoFiltro} filme(s) sem essa informação, ` +
+      "que não foram escondidos pelo filtro.";
+    aviso.hidden = false;
+  } else {
+    aviso.hidden = true;
+  }
+}
+
 // --- Ordenacao da lista ----------------------------------------------------
 
 // Filme sem nota ou sem duracao vai sempre para o fim, nunca para o comeco.
@@ -313,9 +367,15 @@ async function carregarFilmes() {
 
     mostrarMensagemLista(null);
     const fragmento = document.createDocumentFragment();
-    ordenarLista(filmes, criterioAtual()).forEach((filme) =>
-      fragmento.appendChild(criarCard(filme))
-    );
+    const visiveis = ordenarLista(filtrarLista(filmes), criterioAtual());
+    avisarSobreDadosAusentes();
+
+    if (visiveis.length === 0) {
+      mostrarMensagemLista("Nenhum filme com esses filtros.");
+      return;
+    }
+
+    visiveis.forEach((filme) => fragmento.appendChild(criarCard(filme)));
     GRID.appendChild(fragmento);
   } catch (erro) {
     console.error("Erro ao carregar filmes:", erro);
@@ -328,10 +388,12 @@ async function carregarFilmes() {
 document.addEventListener("filmes:atualizar", carregarFilmes);
 
 document.addEventListener("DOMContentLoaded", () => {
-  const select = document.getElementById("ordenacao");
-  if (select) {
-    select.addEventListener("change", carregarFilmes);
-  }
+  ["ordenacao", "filtro-duracao"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("change", carregarFilmes);
+    }
+  });
   carregarFilmes();
 });
 

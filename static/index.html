@@ -41,6 +41,18 @@
       </select>
     </div>
 
+    <div class="filtros-linha">
+      <label for="filtro-duracao" class="rotulo">Duração</label>
+      <select id="filtro-duracao">
+        <option value="">Qualquer duração</option>
+        <option value="curto">Até 90 min</option>
+        <option value="medio">De 90 a 120 min</option>
+        <option value="longo">Mais de 2 h</option>
+      </select>
+    </div>
+
+    <p id="aviso-filtro" class="aviso-filtro" hidden></p>
+
     <p id="filmes-mensagem" class="filmes-mensagem" hidden></p>
     <section id="filmes-grid" class="filmes-grid" aria-live="polite"></section>
   </main>
