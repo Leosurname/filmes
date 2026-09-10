@@ -101,6 +101,18 @@ function cabecalhosDeIdentificacao() {
   return pessoa ? { "X-Pessoa-Id": String(pessoa.id) } : {};
 }
 
+// Se a API recusar a identificacao (401), o aparelho esqueceu ou a pessoa foi
+// removida do banco. Em vez de deixar a pessoa presa num erro, voltamos para a
+// tela de entrada: digitar o mesmo nome recupera a mesma pessoa e o historico.
+function tratarIdentificacaoRecusada(resposta) {
+  if (resposta && resposta.status === 401) {
+    esquecerPessoa();
+    mostrarTelaEntrada();
+    return true;
+  }
+  return false;
+}
+
 // --- Tela de entrada -------------------------------------------------------
 //
 // Na primeira visita a pessoa digita o proprio nome e entra. Nao existe lista
@@ -218,6 +230,9 @@ function iniciarSessao() {
       body: JSON.stringify({ url: link })
     })
       .then(function (resposta) {
+        if (typeof tratarIdentificacaoRecusada === "function" && tratarIdentificacaoRecusada(resposta)) {
+          throw new Error("Entre com o seu nome de novo.");
+        }
         if (!resposta.ok) {
           return resposta
             .json()
