@@ -1,17 +1,37 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Filmes da Família</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="topo">
-    <h1>Filmes da Família</h1>
-  </header>
+  <main class="pagina">
+    <h1 class="titulo">Filmes da Família</h1>
+    <p class="subtitulo">Cole o link do filme para adicionar na lista.</p>
 
-  <main>
+    <form id="form-filme" class="form-filme" novalidate>
+      <label for="link-filme" class="rotulo">Link do filme</label>
+      <input
+        id="link-filme"
+        name="link"
+        type="url"
+        inputmode="url"
+        placeholder="https://www.imdb.com/title/..."
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        required
+      >
+      <button id="botao-enviar" type="submit" class="botao-enviar">
+        <span class="botao-texto">Adicionar filme</span>
+      </button>
+    </form>
+
+    <div id="mensagem" class="mensagem" role="status" aria-live="polite" hidden></div>
+
     <p id="filmes-mensagem" class="filmes-mensagem" hidden></p>
     <section id="filmes-grid" class="filmes-grid" aria-live="polite"></section>
   </main>
