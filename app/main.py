@@ -149,6 +149,28 @@ def salvar_filme(
     try:
         pessoa_id = _resolver_pessoa(conexao, nome)
         dados, aviso = _dados_do_link(url)
+
+        # Duplicado se checa pelo imdb_id, nunca pela url: a mesma pessoa pode
+        # colar links diferentes do mesmo filme.
+        imdb_id = dados.get("imdb_id")
+        if imdb_id:
+            ja_existe = conexao.execute(
+                "SELECT f.id, f.titulo, f.data_sugestao, p.nome "
+                "FROM filmes f LEFT JOIN pessoas p ON p.id = f.pessoa_id "
+                "WHERE f.imdb_id = ? ORDER BY f.id LIMIT 1",
+                (imdb_id,),
+            ).fetchone()
+            if ja_existe is not None:
+                quem = ja_existe["nome"] or "alguém da casa"
+                titulo = ja_existe["titulo"] or "Esse filme"
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"{titulo} já está na lista: {quem} sugeriu "
+                        f"em {ja_existe['data_sugestao']}."
+                    ),
+                )
+
         registro = {
             "url_original": url,
             "pessoa_id": pessoa_id,
