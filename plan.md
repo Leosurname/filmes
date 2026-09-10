@@ -81,7 +81,6 @@ Tabela `filmes`:
 | `pessoa_id` | INTEGER | quem sugeriu (referência a `pessoas`) |
 | `data_sugestao` | TEXT | data de entrada |
 | `status` | TEXT | `quero_ver` ou `assistido` |
-| `data_assistido` | TEXT | quando o filme foi marcado como assistido (permite desfazer) |
 | `nota_familia` | REAL | nota que a família deu depois |
 
 Tabela `pessoas`:
