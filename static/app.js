@@ -1,4 +1,27 @@
-(function () {
+(// Quem esta usando o aparelho. A API precisa saber de quem e a sugestao.
+// Isto e provisorio: a tela de login e o armazenamento definitivo sao as
+// issues #26 e #30, e o contrato final da identificacao e a #31.
+function nomeDaPessoa() {
+  var nome = "";
+  try {
+    nome = window.localStorage.getItem("filmes:pessoa") || "";
+  } catch (e) {
+    nome = "";
+  }
+  if (!nome) {
+    nome = (window.prompt("Qual e o seu nome?") || "").trim();
+    if (nome) {
+      try {
+        window.localStorage.setItem("filmes:pessoa", nome);
+      } catch (e) {
+        // Armazenamento bloqueado: segue so nesta visita.
+      }
+    }
+  }
+  return nome;
+}
+
+function () {
   "use strict";
 
   var form = document.getElementById("form-filme");
@@ -39,8 +62,11 @@
 
     fetch("/api/filmes", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url_original: link })
+      headers: {
+        "Content-Type": "application/json",
+        "X-Pessoa-Nome": nomeDaPessoa()
+      },
+      body: JSON.stringify({ url: link })
     })
       .then(function (resposta) {
         if (!resposta.ok) {
