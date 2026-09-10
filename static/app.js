@@ -1,3 +1,20 @@
+// --- Onde fica a API -------------------------------------------------------
+//
+// Por padrao a pagina fala com o proprio servidor que a serviu, que e o caso de
+// quem abre o app pela rede de casa. Quando a pagina estiver hospedada em outro
+// lugar (GitHub Pages, por exemplo) e o servidor no computador de casa, basta
+// definir window.FILMES_API antes de carregar este arquivo:
+//
+//   <script>window.FILMES_API = "https://endereco-do-servidor";</script>
+//
+// O servidor tambem precisa autorizar essa origem, pela variavel FILMES_ORIGENS.
+
+const API = (window.FILMES_API || "").replace(/\/$/, "");
+
+function url(caminho) {
+  return API + caminho;
+}
+
 // --- Identificacao guardada no aparelho ------------------------------------
 //
 // Depois de entrar uma vez, o aparelho guarda quem e a pessoa e nao pergunta
@@ -81,7 +98,7 @@ function avisarSeArmazenamentoBloqueado() {
 }
 
 async function entrarComNome(nome) {
-  const resposta = await fetch("/api/entrar", {
+  const resposta = await fetch(url("/api/entrar"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ nome })
@@ -183,7 +200,7 @@ async function corrigirNome() {
   if (!novo || novo === pessoa.nome) return;
 
   try {
-    const resposta = await fetch("/api/pessoa", {
+    const resposta = await fetch(url("/api/pessoa"), {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -265,7 +282,7 @@ function iniciarSessao() {
     limparMensagem();
     definirCarregando(true);
 
-    fetch("/api/filmes", {
+    fetch(url("/api/filmes"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -408,7 +425,7 @@ async function removerFilme(filme) {
     return;
   }
   try {
-    const resposta = await fetch(`/api/filmes/${filme.id}`, { method: "DELETE" });
+    const resposta = await fetch(url(`/api/filmes/${filme.id}`), { method: "DELETE" });
     if (!resposta.ok && resposta.status !== 204) {
       throw new Error(`status ${resposta.status}`);
     }
@@ -809,7 +826,7 @@ function criterioAtual() {
 async function carregarFilmes() {
   mostrarMensagemLista("Carregando filmes...");
   try {
-    const resposta = await fetch("/api/filmes");
+    const resposta = await fetch(url("/api/filmes"));
     if (!resposta.ok) {
       throw new Error(`Falha ao buscar filmes (status ${resposta.status})`);
     }
