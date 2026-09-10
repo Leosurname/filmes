@@ -1,132 +1,130 @@
-"""Banco SQLite e queries relacionadas aos filmes.
+"""Conexao com o SQLite e schema das tabelas `pessoas` e `filmes`.
 
-Escopo desta issue (#12 - filtrar por tema): guardar os filmes com seus
-generos e permitir listar filtrando por genero, combinando com outros
-filtros que a lista de filmes venha a receber (ex.: duracao, pessoa).
-
-Os demais recursos do `plan.md` (extrair link, OMDb, onde assistir,
-classificacao, marcar como assistido etc.) sao de outras issues e nao
-sao implementados aqui.
+Cobre a Issue #2 (Fase 1 do plan.md): criar o banco, criar a tabela e
+oferecer funcoes basicas de inserir e listar filmes.
 """
+
+from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Any
 
+# Caminho do banco na raiz do projeto (ao lado da pasta app/).
 DB_PATH = Path(__file__).resolve().parent.parent / "filmes.db"
 
+CRIAR_TABELA_PESSOAS = """
+CREATE TABLE IF NOT EXISTS pessoas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    data_entrada TEXT NOT NULL
+);
+"""
 
-def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+CRIAR_TABELA_FILMES = """
+CREATE TABLE IF NOT EXISTS filmes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    url_original TEXT,
+    imdb_id TEXT,
+    titulo TEXT,
+    ano INTEGER,
+    duracao_min INTEGER,
+    generos TEXT,
+    classificacao TEXT,
+    nota_imdb REAL,
+    sinopse TEXT,
+    poster_url TEXT,
+    provedores TEXT,
+    pessoa_id INTEGER,
+    data_sugestao TEXT,
+    status TEXT,
+    nota_familia REAL,
+    FOREIGN KEY (pessoa_id) REFERENCES pessoas (id)
+);
+"""
+
+# Colunas na mesma ordem usada por inserir_filme / listar_filmes.
+COLUNAS_FILMES = [
+    "url_original",
+    "imdb_id",
+    "titulo",
+    "ano",
+    "duracao_min",
+    "generos",
+    "classificacao",
+    "nota_imdb",
+    "sinopse",
+    "poster_url",
+    "provedores",
+    "pessoa_id",
+    "data_sugestao",
+    "status",
+    "nota_familia",
+]
+
+
+def conectar(db_path: Path | str = DB_PATH) -> sqlite3.Connection:
+    """Abre uma conexao com o banco, criando o arquivo se nao existir.
+
+    `row_factory` fica configurada como `sqlite3.Row` para que as linhas
+    possam ser lidas tanto por indice quanto por nome de coluna.
+    """
+    conexao = sqlite3.connect(db_path)
+    conexao.row_factory = sqlite3.Row
+    conexao.execute("PRAGMA foreign_keys = ON;")
+    return conexao
+
+
+def criar_schema(conexao: sqlite3.Connection | None = None) -> None:
+    """Cria as tabelas `pessoas` e `filmes` caso ainda nao existam.
+
+    A ordem importa: `filmes.pessoa_id` referencia `pessoas.id`.
+    """
+    conexao_propria = conexao is None
+    conn = conexao or conectar()
+    try:
+        conn.execute(CRIAR_TABELA_PESSOAS)
+        conn.execute(CRIAR_TABELA_FILMES)
+        conn.commit()
+    finally:
+        if conexao_propria:
+            conn.close()
+
+
+def inicializar_banco(db_path: Path | str = DB_PATH) -> sqlite3.Connection:
+    """Garante que o arquivo do banco e o schema existem e devolve a conexao."""
+    conn = conectar(db_path)
+    criar_schema(conn)
     return conn
 
 
-def init_db() -> None:
-    with get_connection() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS filmes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                titulo TEXT NOT NULL,
-                generos TEXT NOT NULL DEFAULT '',
-                duracao_min INTEGER,
-                pessoa_nome TEXT
-            )
-            """
-        )
-        conn.commit()
+def inserir_filme(conexao: sqlite3.Connection, filme: dict[str, Any]) -> int:
+    """Insere um filme na tabela e devolve o `id` gerado.
 
-
-def _normaliza_generos(generos: Iterable[str]) -> str:
-    """Recebe generos e devolve string canonica 'Genero A, Genero B'."""
-    limpos = []
-    for g in generos:
-        g = g.strip()
-        if g and g not in limpos:
-            limpos.append(g)
-    return ", ".join(limpos)
-
-
-def inserir_filme(
-    titulo: str,
-    generos: Iterable[str],
-    duracao_min: Optional[int] = None,
-    pessoa_nome: Optional[str] = None,
-) -> int:
-    generos_str = _normaliza_generos(generos)
-    with get_connection() as conn:
-        cur = conn.execute(
-            "INSERT INTO filmes (titulo, generos, duracao_min, pessoa_nome) "
-            "VALUES (?, ?, ?, ?)",
-            (titulo, generos_str, duracao_min, pessoa_nome),
-        )
-        conn.commit()
-        return cur.lastrowid
-
-
-def _linha_para_dict(row: sqlite3.Row) -> dict:
-    generos = [g.strip() for g in row["generos"].split(",") if g.strip()]
-    return {
-        "id": row["id"],
-        "titulo": row["titulo"],
-        "generos": generos,
-        "duracao_min": row["duracao_min"],
-        "pessoa_nome": row["pessoa_nome"],
-    }
-
-
-def listar_generos() -> list[str]:
-    """So devolve generos que existem em algum filme cadastrado."""
-    with get_connection() as conn:
-        rows = conn.execute("SELECT generos FROM filmes").fetchall()
-    encontrados: set[str] = set()
-    for row in rows:
-        for g in row["generos"].split(","):
-            g = g.strip()
-            if g:
-                encontrados.add(g)
-    return sorted(encontrados)
-
-
-def listar_filmes(
-    generos: Optional[list[str]] = None,
-    duracao_min: Optional[int] = None,
-    duracao_max: Optional[int] = None,
-    pessoa_nome: Optional[str] = None,
-) -> list[dict]:
-    """Lista filmes, combinando (AND) os filtros informados.
-
-    - `generos`: um filme aparece se tiver QUALQUER um dos generos pedidos
-      (OR dentro do proprio filtro de tema), mas isso combina em AND com os
-      demais filtros passados (duracao, pessoa etc.).
+    `filme` e um dicionario com qualquer subconjunto das colunas de
+    `COLUNAS_FILMES`; colunas ausentes ficam com NULL.
     """
-    query = "SELECT * FROM filmes WHERE 1=1"
-    params: list = []
+    colunas = [coluna for coluna in COLUNAS_FILMES if coluna in filme]
+    valores = [filme[coluna] for coluna in colunas]
+    placeholders = ", ".join("?" for _ in colunas)
+    colunas_sql = ", ".join(colunas)
 
-    if generos:
-        # filme com varios generos aparece se tiver pelo menos um dos
-        # generos selecionados
-        condicoes = []
-        for g in generos:
-            condicoes.append("(',' || REPLACE(generos, ', ', ',') || ',') LIKE ?")
-            params.append(f"%,{g},%")
-        query += " AND (" + " OR ".join(condicoes) + ")"
+    cursor = conexao.execute(
+        f"INSERT INTO filmes ({colunas_sql}) VALUES ({placeholders});",
+        valores,
+    )
+    conexao.commit()
+    return cursor.lastrowid
 
-    if duracao_min is not None:
-        query += " AND duracao_min IS NOT NULL AND duracao_min >= ?"
-        params.append(duracao_min)
 
-    if duracao_max is not None:
-        query += " AND duracao_min IS NOT NULL AND duracao_min <= ?"
-        params.append(duracao_max)
+def listar_filmes(conexao: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Lista todos os filmes cadastrados, do mais recente para o mais antigo."""
+    cursor = conexao.execute("SELECT * FROM filmes ORDER BY id DESC;")
+    return cursor.fetchall()
 
-    if pessoa_nome:
-        query += " AND pessoa_nome = ?"
-        params.append(pessoa_nome)
 
-    query += " ORDER BY id DESC"
-
-    with get_connection() as conn:
-        rows = conn.execute(query, params).fetchall()
-    return [_linha_para_dict(r) for r in rows]
+if __name__ == "__main__":
+    # Execucao manual: garante que o banco e a tabela existem.
+    conexao = inicializar_banco()
+    print(f"Banco pronto em: {DB_PATH}")
+    conexao.close()
