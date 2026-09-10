@@ -1,52 +1,80 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Filmes da Família</title>
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>Já assistimos</h1>
-    <label class="ordenar">
-      Ordenar por
-      <select id="ordenar">
-        <option value="">Mais recente</option>
-        <option value="nota_familia">Nota da família</option>
+  <main class="pagina">
+    <h1 class="titulo">Filmes da Família</h1>
+    <p class="subtitulo">Cole o link do filme para adicionar na lista.</p>
+
+    <form id="form-filme" class="form-filme" novalidate>
+      <label for="link-filme" class="rotulo">Link do filme</label>
+      <input
+        id="link-filme"
+        name="link"
+        type="url"
+        inputmode="url"
+        placeholder="https://www.imdb.com/title/..."
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        required
+      >
+      <button id="botao-enviar" type="submit" class="botao-enviar">
+        <span class="botao-texto">Adicionar filme</span>
+      </button>
+    </form>
+
+    <div id="mensagem" class="mensagem" role="status" aria-live="polite" hidden></div>
+
+    <div class="ordenacao-linha">
+      <label for="ordenacao" class="rotulo">Ordenar por</label>
+      <select id="ordenacao">
+        <option value="recente">Mais recente</option>
+        <option value="nota">Maior nota do IMDb</option>
+        <option value="duracao">Menor duração</option>
       </select>
-    </label>
-  </header>
+    </div>
 
-  <main id="lista" class="lista-filmes"></main>
+    <div class="filtros-linha">
+      <label for="filtro-duracao" class="rotulo">Duração</label>
+      <select id="filtro-duracao">
+        <option value="">Qualquer duração</option>
+        <option value="curto">Até 90 min</option>
+        <option value="medio">De 90 a 120 min</option>
+        <option value="longo">Mais de 2 h</option>
+      </select>
+      <label for="filtro-tema" class="rotulo">Tema</label>
+      <select id="filtro-tema">
+        <option value="">Qualquer tema</option>
+      </select>
+      <label for="filtro-classificacao" class="rotulo">Classificação</label>
+      <select id="filtro-classificacao">
+        <option value="">Qualquer classificação</option>
+        <option value="L">Livre</option>
+        <option value="10">Até 10 anos</option>
+        <option value="12">Até 12 anos</option>
+        <option value="14">Até 14 anos</option>
+        <option value="16">Até 16 anos</option>
+        <option value="18">Até 18 anos</option>
+      </select>
+      <label for="filtro-servico" class="rotulo">Onde assistir</label>
+      <select id="filtro-servico">
+        <option value="">Qualquer serviço</option>
+      </select>
+    </div>
 
-  <template id="template-card">
-    <article class="card">
-      <img class="poster" />
-      <div class="card-info">
-        <h2 class="titulo"></h2>
-        <p class="ano"></p>
-        <div class="notas">
-          <span class="nota nota-imdb" title="Nota do IMDb">
-            <span class="nota-label">IMDb</span>
-            <span class="nota-valor valor-imdb"></span>
-          </span>
-          <span class="nota nota-familia" title="Nota da família">
-            <span class="nota-label">Família</span>
-            <span class="nota-valor valor-familia"></span>
-          </span>
-        </div>
-        <form class="form-nota-familia">
-          <label>
-            Nota da família (0 a 10)
-            <input type="number" min="0" max="10" step="0.5" class="input-nota-familia" required />
-          </label>
-          <button type="submit">Salvar</button>
-        </form>
-      </div>
-    </article>
-  </template>
+    <p id="aviso-filtro" class="aviso-filtro" hidden></p>
 
-  <script src="/app.js"></script>
+    <p id="filmes-mensagem" class="filmes-mensagem" hidden></p>
+    <section id="filmes-grid" class="filmes-grid" aria-live="polite"></section>
+  </main>
+
+  <script src="app.js"></script>
 </body>
 </html>
