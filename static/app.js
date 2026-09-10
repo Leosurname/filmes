@@ -101,6 +101,75 @@ function cabecalhosDeIdentificacao() {
   return pessoa ? { "X-Pessoa-Id": String(pessoa.id) } : {};
 }
 
+// --- Tela de entrada -------------------------------------------------------
+//
+// Na primeira visita a pessoa digita o proprio nome e entra. Nao existe lista
+// de nomes da casa para escolher: cada um digita o seu. Da segunda visita em
+// diante a pergunta nao aparece mais, porque o aparelho ja sabe quem e (#30).
+
+function mostrarTelaEntrada() {
+  const entrada = document.getElementById("tela-entrada");
+  const pagina = document.getElementById("pagina");
+  if (entrada) entrada.hidden = false;
+  if (pagina) pagina.hidden = true;
+  const campo = document.getElementById("nome-pessoa");
+  if (campo) campo.focus();
+}
+
+function mostrarLista(pessoa) {
+  const entrada = document.getElementById("tela-entrada");
+  const pagina = document.getElementById("pagina");
+  if (entrada) entrada.hidden = true;
+  if (pagina) pagina.hidden = false;
+
+  const nome = document.getElementById("nome-de-quem-usa");
+  if (nome) nome.textContent = pessoa.nome;
+
+  avisarSeArmazenamentoBloqueado();
+  document.dispatchEvent(new CustomEvent("filmes:atualizar"));
+}
+
+function ligarFormularioDeEntrada() {
+  const form = document.getElementById("form-entrada");
+  if (!form) return;
+
+  form.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const campo = document.getElementById("nome-pessoa");
+    const erro = document.getElementById("erro-entrada");
+    const nome = (campo ? campo.value : "").trim();
+
+    if (erro) erro.hidden = true;
+    if (!nome) {
+      if (erro) {
+        erro.textContent = "Digite o seu nome para entrar.";
+        erro.hidden = false;
+      }
+      return;
+    }
+
+    try {
+      const pessoa = await entrarComNome(nome);
+      mostrarLista(pessoa);
+    } catch (e) {
+      if (erro) {
+        erro.textContent = "Não foi possível entrar agora. Tente de novo.";
+        erro.hidden = false;
+      }
+    }
+  });
+}
+
+function iniciarSessao() {
+  ligarFormularioDeEntrada();
+  const pessoa = pessoaGuardada();
+  if (pessoa) {
+    mostrarLista(pessoa);
+  } else {
+    mostrarTelaEntrada();
+  }
+}
+
 (function () {
   "use strict";
 
@@ -666,6 +735,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll('input[name="visao"]').forEach((el) => {
     el.addEventListener("change", carregarFilmes);
   });
+  iniciarSessao();
   ["ordenacao", "filtro-duracao", "filtro-tema", "filtro-classificacao", "filtro-servico"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
