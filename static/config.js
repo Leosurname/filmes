@@ -8,4 +8,4 @@
 // use um túnel nomeado (veja o README).
 //
 //   window.FILMES_API = "https://algum-nome-aleatorio.trycloudflare.com";
-window.FILMES_API = "";
+window.FILMES_API = "https://invitations-growth-shut-antivirus.trycloudflare.com";
