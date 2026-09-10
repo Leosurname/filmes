@@ -129,13 +129,21 @@ filmes/
 | F3 | Filtros por duração, tema, classificação, nota do IMDb e pessoa |
 | F4 | "Onde assistir" via TMDB |
 | F5 | Marcar como assistido e dar nota da família |
-| F6 | Rodar em casa para todos acessarem pela rede |
+| F6 | Rodar em casa, com a página publicada no GitHub Pages |
 
 Cada fase vira uma issue no GitHub, conforme as regras do `claude.md`.
 
 ## Fora de escopo por enquanto
 
 - Senha ou login de verdade (a identificação é só pelo nome, sem proteção)
+
+> **Atenção — decisão tomada em 10/09/2026.** A página é publicada no GitHub
+> Pages e o servidor de casa fica acessível pela internet por um túnel HTTPS.
+> Não há senha nem qualquer proteção: a segurança depende só de o endereço do
+> túnel não ser descoberto. Quem tiver o link consegue ver, adicionar e **apagar**
+> filmes da lista. Foi uma escolha consciente, para o app ser fácil de usar.
+> Se um dia isso incomodar, as saídas são uma senha única da casa ou o Cloudflare
+> Access na frente do túnel.
 - Aplicativo mobile nativo
 - Notificações
 - Recomendações automáticas

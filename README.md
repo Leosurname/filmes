@@ -125,9 +125,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 O IP pode mudar se o roteador reatribuir o endereço; se isso acontecer,
 rode o comando do passo 1 de novo.
 
-**Isso não expõe o serviço na internet** — só funciona para aparelhos dentro
-da rede Wi-Fi de casa. Nada de redirecionamento de porta no roteador nem
-túneis públicos.
+Rodando só assim, o serviço não sai da rede de casa. Para acessar de fora — e
+para a página publicada no GitHub Pages funcionar — veja a seção seguinte.
 
 Se o macOS bloquear conexões de entrada (Firewall em
 *Ajustes do Sistema → Rede → Firewall*), autorize o Python/uvicorn quando o
@@ -166,6 +165,69 @@ launchctl unload ~/Library/LaunchAgents/com.filmes.servidor.plist
 ```
 
 Essa decisão pode ser revista quando as fases F1–F5 estiverem prontas.
+
+## Página publicada e acesso de fora de casa
+
+A página fica no GitHub Pages e conversa com o servidor que roda aqui em casa.
+
+### Por que precisa de um túnel
+
+A página publicada é servida por HTTPS, e navegador nenhum deixa uma página HTTPS
+chamar um endereço HTTP comum como `http://192.168.0.10:8000`. Sem túnel, nem os
+aparelhos da própria casa conseguiriam usar a página publicada.
+
+### ⚠️ Sem proteção nenhuma
+
+Com o túnel no ar, **qualquer pessoa que descubra o endereço entra na lista** e
+pode adicionar e apagar filmes. Não há senha: a identificação é só um nome
+digitado. Isso foi uma escolha consciente — está registrada no `plan.md`.
+
+Na prática: não publique o endereço do túnel em lugar nenhum, e derrube o túnel
+quando não estiver usando.
+
+### Subir o túnel
+
+Instale o Cloudflare Tunnel uma vez:
+
+```bash
+brew install cloudflared
+```
+
+Com o servidor já rodando, abra outro terminal:
+
+```bash
+cloudflared tunnel --url http://localhost:8000
+```
+
+Ele imprime um endereço parecido com `https://algo-aleatorio.trycloudflare.com`.
+Esse endereço **muda toda vez** que o túnel sobe. Para um endereço fixo, é
+preciso um túnel nomeado, o que exige uma conta Cloudflare (gratuita).
+
+### Ligar a página ao túnel
+
+1. Cole o endereço do túnel em `static/config.js`:
+
+   ```js
+   window.FILMES_API = "https://algo-aleatorio.trycloudflare.com";
+   ```
+
+2. Commit, push e rode:
+
+   ```bash
+   ./scripts/publicar-pagina.sh
+   ```
+
+   Ele copia a `static/` para a branch `gh-pages`, que é o que o GitHub Pages
+   serve. Para isso virar automático a cada push, dê o escopo que falta ao
+   `gh` — `gh auth refresh -s workflow` — e me peça o workflow do Actions.
+
+3. Autorize a origem da página no servidor, no `.env`:
+
+   ```
+   FILMES_ORIGENS=https://leosurname.github.io
+   ```
+
+   E reinicie o servidor. Sem isso o navegador bloqueia as chamadas.
 
 ## Estrutura do projeto
 
