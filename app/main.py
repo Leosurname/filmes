@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app.db import conectar, criar_schema, inserir_filme
+from app.db import conectar, criar_schema, inserir_filme, listar_filmes
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
@@ -111,6 +111,20 @@ def salvar_filme(
         conexao.close()
 
     return FilmeResponse(**dict(linha))
+
+
+@app.get("/api/filmes")
+def get_filmes() -> list[dict]:
+    """Lista os filmes salvos, do mais recente para o mais antigo.
+
+    Devolve todos os campos de cada filme e uma lista vazia — nunca um erro —
+    quando ainda não há nada salvo.
+    """
+    conexao = conectar()
+    try:
+        return [dict(linha) for linha in listar_filmes(conexao)]
+    finally:
+        conexao.close()
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
