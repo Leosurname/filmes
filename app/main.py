@@ -1,78 +1,130 @@
-"""API e servidor de arquivos estaticos.
+"""Rotas da API e servidor da aplicação Filmes da Família."""
 
-Este arquivo, por enquanto, so implementa o necessario para a issue #13
-(filtro por classificacao indicativa): listar filmes e filtrar por
-classificacao. As demais rotas (salvar filme a partir de link, onde
-assistir, etc.) sao escopo de outras issues.
-"""
+from contextlib import asynccontextmanager
+from datetime import date
+from pathlib import Path
 
-import os
-
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
-from app import db
-from app.classificacao import (
-    ORDEM_CLASSIFICACAO,
-    atende_filtro_ate,
-    omdb_para_br,
-    rotulo_classificacao,
-)
+from app.db import conectar, criar_schema, inserir_filme, listar_filmes
 
-app = FastAPI(title="Filmes da Familia")
-
-db.inicializar()
-
-DIR_ESTATICO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / "static"
 
 
-@app.get("/api/filmes")
-def obter_filmes(classificacao_max: str | None = Query(default=None)):
-    """Lista os filmes, com filtro opcional de classificacao indicativa.
-
-    `classificacao_max`: um dos valores L, 10, 12, 14, 16, 18. Quando
-    informado, retorna somente filmes com classificacao igual ou mais leve.
-    Filmes sem classificacao definida na OMDb nunca entram nesse filtro,
-    mas aparecem normalmente quando nenhum filtro e aplicado.
-    """
-    if classificacao_max is not None and classificacao_max not in ORDEM_CLASSIFICACAO:
-        return {"erro": f"classificacao_max invalida. Use um de: {ORDEM_CLASSIFICACAO}"}
-
-    conexao = db.conectar()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Garante que o banco e o schema existem antes de atender qualquer pedido."""
+    conexao = conectar()
     try:
-        filmes = db.listar_filmes(conexao)
+        criar_schema(conexao)
+    finally:
+        conexao.close()
+    yield
+
+
+app = FastAPI(title="Filmes da Família", lifespan=lifespan)
+
+
+@app.get("/")
+def index() -> FileResponse:
+    """Serve a página inicial estática."""
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+class NovoFilmeRequest(BaseModel):
+    url: str = Field(default="")
+
+
+class FilmeResponse(BaseModel):
+    id: int
+    url_original: str
+    pessoa_id: int
+    data_sugestao: str
+    status: str
+
+
+def _resolver_pessoa(conexao, nome: str) -> int:
+    """Devolve o id da pessoa com esse nome, criando o registro se for a primeira vez.
+
+    A comparação ignora maiúsculas e espaços nas pontas, para "Leo" e "leo "
+    não virarem duas pessoas. O tratamento de acentos e o contrato definitivo
+    de identificação são das issues #25 e #31, ainda não implementadas.
+    """
+    linha = conexao.execute(
+        "SELECT id FROM pessoas WHERE lower(trim(nome)) = lower(trim(?))",
+        (nome,),
+    ).fetchone()
+    if linha is not None:
+        return linha["id"]
+
+    cursor = conexao.execute(
+        "INSERT INTO pessoas (nome, data_entrada) VALUES (?, ?)",
+        (nome.strip(), date.today().isoformat()),
+    )
+    conexao.commit()
+    return cursor.lastrowid
+
+
+@app.post("/api/filmes", response_model=FilmeResponse, status_code=201)
+def salvar_filme(
+    payload: NovoFilmeRequest,
+    x_pessoa_nome: str | None = Header(default=None),
+) -> FilmeResponse:
+    """Salva um filme a partir do link colado.
+
+    Quem sugeriu não vem digitado no corpo do pedido: vem de quem está usando
+    o sistema, pelo header `X-Pessoa-Nome`. Esse header é um contrato
+    provisório — a issue #31 define o definitivo.
+    """
+    url = (payload.url or "").strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="A url do filme é obrigatória.")
+
+    nome = (x_pessoa_nome or "").strip()
+    if not nome:
+        raise HTTPException(
+            status_code=400,
+            detail="Não foi possível identificar quem está enviando.",
+        )
+
+    conexao = conectar()
+    try:
+        pessoa_id = _resolver_pessoa(conexao, nome)
+        filme_id = inserir_filme(
+            conexao,
+            {
+                "url_original": url,
+                "pessoa_id": pessoa_id,
+                "data_sugestao": date.today().isoformat(),
+                "status": "quero_ver",
+            },
+        )
+        linha = conexao.execute(
+            "SELECT id, url_original, pessoa_id, data_sugestao, status FROM filmes WHERE id = ?",
+            (filme_id,),
+        ).fetchone()
     finally:
         conexao.close()
 
-    resultado = []
-    for filme in filmes:
-        classificacao_br = omdb_para_br(filme["classificacao"])
-
-        if classificacao_max is not None and not atende_filtro_ate(
-            classificacao_br, classificacao_max
-        ):
-            continue
-
-        resultado.append(
-            {
-                "id": filme["id"],
-                "titulo": filme["titulo"],
-                "ano": filme["ano"],
-                "classificacao": classificacao_br,
-                "classificacao_rotulo": rotulo_classificacao(classificacao_br),
-            }
-        )
-
-    return resultado
+    return FilmeResponse(**dict(linha))
 
 
-@app.get("/api/classificacoes")
-def obter_classificacoes():
-    """Lista as opcoes de classificacao, para montar o filtro na tela."""
-    return [
-        {"valor": valor, "rotulo": rotulo_classificacao(valor)}
-        for valor in ORDEM_CLASSIFICACAO
-    ]
+@app.get("/api/filmes")
+def get_filmes() -> list[dict]:
+    """Lista os filmes salvos, do mais recente para o mais antigo.
+
+    Devolve todos os campos de cada filme e uma lista vazia — nunca um erro —
+    quando ainda não há nada salvo.
+    """
+    conexao = conectar()
+    try:
+        return [dict(linha) for linha in listar_filmes(conexao)]
+    finally:
+        conexao.close()
 
 
-app.mount("/", StaticFiles(directory=DIR_ESTATICO, html=True), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
