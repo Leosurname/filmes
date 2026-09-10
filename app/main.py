@@ -1,30 +1,38 @@
-"""API do Filmes da Familia.
+"""Rotas da API e servidor da aplicação Filmes da Família."""
 
-Este modulo implementa, por enquanto, apenas o `POST /api/filmes` (issue #3).
-
-Mudanca de escopo (comentario da issue #3): com a identificacao por nome
-(issue #25), o `quem_sugeriu` NAO vem mais digitado no corpo do pedido.
-Ele vem de quem esta usando o sistema. Como o mecanismo de identificacao do
-aparelho ainda nao existe (issues #25/#30/#31), este endpoint le a pessoa a
-partir do header `X-Pessoa-Nome`, que e o contrato mais simples possivel para
-o front-end enviar "quem esta logado" em cada chamada. Quando a issue #31
-definir a forma definitiva de identificacao do aparelho, este ponto deve ser
-ajustado para usar o mecanismo oficial.
-"""
-
+from contextlib import asynccontextmanager
 from datetime import date
+from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app.db import inserir_filme, init_db
+from app.db import conectar, criar_schema, inserir_filme
 
-app = FastAPI(title="Filmes da Familia")
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / "static"
 
 
-@app.on_event("startup")
-def _on_startup() -> None:
-    init_db()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Garante que o banco e o schema existem antes de atender qualquer pedido."""
+    conexao = conectar()
+    try:
+        criar_schema(conexao)
+    finally:
+        conexao.close()
+    yield
+
+
+app = FastAPI(title="Filmes da Família", lifespan=lifespan)
+
+
+@app.get("/")
+def index() -> FileResponse:
+    """Serve a página inicial estática."""
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 class NovoFilmeRequest(BaseModel):
@@ -34,9 +42,31 @@ class NovoFilmeRequest(BaseModel):
 class FilmeResponse(BaseModel):
     id: int
     url_original: str
-    quem_sugeriu: str
+    pessoa_id: int
     data_sugestao: str
     status: str
+
+
+def _resolver_pessoa(conexao, nome: str) -> int:
+    """Devolve o id da pessoa com esse nome, criando o registro se for a primeira vez.
+
+    A comparação ignora maiúsculas e espaços nas pontas, para "Leo" e "leo "
+    não virarem duas pessoas. O tratamento de acentos e o contrato definitivo
+    de identificação são das issues #25 e #31, ainda não implementadas.
+    """
+    linha = conexao.execute(
+        "SELECT id FROM pessoas WHERE lower(trim(nome)) = lower(trim(?))",
+        (nome,),
+    ).fetchone()
+    if linha is not None:
+        return linha["id"]
+
+    cursor = conexao.execute(
+        "INSERT INTO pessoas (nome, data_entrada) VALUES (?, ?)",
+        (nome.strip(), date.today().isoformat()),
+    )
+    conexao.commit()
+    return cursor.lastrowid
 
 
 @app.post("/api/filmes", response_model=FilmeResponse, status_code=201)
@@ -44,28 +74,43 @@ def salvar_filme(
     payload: NovoFilmeRequest,
     x_pessoa_nome: str | None = Header(default=None),
 ) -> FilmeResponse:
+    """Salva um filme a partir do link colado.
+
+    Quem sugeriu não vem digitado no corpo do pedido: vem de quem está usando
+    o sistema, pelo header `X-Pessoa-Nome`. Esse header é um contrato
+    provisório — a issue #31 define o definitivo.
+    """
     url = (payload.url or "").strip()
     if not url:
-        raise HTTPException(status_code=400, detail="A url do filme e obrigatoria.")
+        raise HTTPException(status_code=400, detail="A url do filme é obrigatória.")
 
-    quem_sugeriu = (x_pessoa_nome or "").strip()
-    if not quem_sugeriu:
+    nome = (x_pessoa_nome or "").strip()
+    if not nome:
         raise HTTPException(
             status_code=400,
-            detail="Nao foi possivel identificar quem esta enviando (header X-Pessoa-Nome ausente).",
+            detail="Não foi possível identificar quem está enviando.",
         )
 
-    row = inserir_filme(
-        url_original=url,
-        quem_sugeriu=quem_sugeriu,
-        data_sugestao=date.today().isoformat(),
-        status="quero_ver",
-    )
+    conexao = conectar()
+    try:
+        pessoa_id = _resolver_pessoa(conexao, nome)
+        filme_id = inserir_filme(
+            conexao,
+            {
+                "url_original": url,
+                "pessoa_id": pessoa_id,
+                "data_sugestao": date.today().isoformat(),
+                "status": "quero_ver",
+            },
+        )
+        linha = conexao.execute(
+            "SELECT id, url_original, pessoa_id, data_sugestao, status FROM filmes WHERE id = ?",
+            (filme_id,),
+        ).fetchone()
+    finally:
+        conexao.close()
 
-    return FilmeResponse(
-        id=row["id"],
-        url_original=row["url_original"],
-        quem_sugeriu=row["quem_sugeriu"],
-        data_sugestao=row["data_sugestao"],
-        status=row["status"],
-    )
+    return FilmeResponse(**dict(linha))
+
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
